@@ -1,3 +1,5 @@
 streamlit
 pdfplumber
 google-generativeai
+fitz
+io
