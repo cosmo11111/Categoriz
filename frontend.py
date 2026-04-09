@@ -1,164 +1,89 @@
 import streamlit as st
 import fitz  # PyMuPDF
-from PIL import Image
+from streamlit_pdf_viewer import pdf_viewer
 import io
-from streamlit_drawable_canvas import st_canvas
 
-st.set_page_config(page_title="PDF Redaction Tool", layout="wide")
-st.title("🖍️ PDF Redaction Tool")
-st.caption("Upload → Draw to redact → Apply permanent blackouts → Download redacted PDF → Send to AI")
+st.set_page_config(page_title="Highlighter Redactor", layout="wide")
+st.title("📑 Highlight to Redact")
+st.caption("Upload → Swipe text to highlight → Execute permanent blackout")
 
 # ====================== SESSION STATE ======================
-if "original_bytes" not in st.session_state:
-    st.session_state.original_bytes = None
-if "working_doc" not in st.session_state:
-    st.session_state.working_doc = None
-# Do NOT initialize current_page here
+if "pdf_bytes" not in st.session_state:
+    st.session_state.pdf_bytes = None
+if "redaction_queues" not in st.session_state:
+    st.session_state.redaction_queues = []  # Stores selection coordinates
 
 # ====================== UPLOAD ======================
-uploaded_file = st.file_uploader("Upload your bank statement (PDF)", type="pdf")
+uploaded_file = st.file_uploader("Upload bank statement", type="pdf")
 
-if uploaded_file and st.session_state.original_bytes is None:
-    st.session_state.original_bytes = uploaded_file.getvalue()
-    st.session_state.working_doc = fitz.open(stream=st.session_state.original_bytes, filetype="pdf")
-    # REMOVE st.session_state.current_page = 0 from here
-    st.success("PDF loaded! Start redacting below.")
+if uploaded_file:
+    st.session_state.pdf_bytes = uploaded_file.read()
 
-# ====================== MAIN APP ======================
-if st.session_state.working_doc:
-    doc = st.session_state.working_doc
-    num_pages = len(doc)
-
-    col1, col2 = st.columns([1, 3])
+# ====================== MAIN UI ======================
+if st.session_state.pdf_bytes:
+    col1, col2 = st.columns([2, 1])
 
     with col1:
-        st.subheader("Navigation")
+        st.subheader("PDF Viewer")
+        st.info("💡 Click and drag your mouse over text to mark it for redaction.")
         
-        # Initialize page if not present
-        if "current_page" not in st.session_state:
-            st.session_state.current_page = 0
-    
-        # Ensure current_page is always valid (safety check)
-        st.session_state.current_page = max(0, min(st.session_state.current_page, num_pages - 1))
-    
-        # Button-based Navigation
-        nav_col1, nav_col2 = st.columns(2)
-        
-        with nav_col1:
-            if st.button("⬅️ Prev") and st.session_state.current_page > 0:
-                st.session_state.current_page -= 1
-                st.rerun()
-        with nav_col2:
-            if st.button("Next ➡️") and st.session_state.current_page < num_pages - 1:
-                st.session_state.current_page += 1
-                st.rerun()
-    
-        st.write(f"**Page {st.session_state.current_page + 1} of {num_pages}**")
-        
-        # Simple page jump (Optional)
-        jump_page = st.number_input("Jump to page", 1, num_pages, st.session_state.current_page + 1)
-        if jump_page - 1 != st.session_state.current_page:
-            st.session_state.current_page = jump_page - 1
-            st.rerun()
-    
-        if st.button("🔄 Reset Redactions"):
-            st.session_state.working_doc = fitz.open(stream=st.session_state.original_bytes, filetype="pdf")
-            st.session_state.current_page = 0
-            st.rerun()
-
-    # Use this for the rest of your code
-    page_num = st.session_state.current_page
-
-    with col2:
-        # Render current page as high-res image
-        page = doc[page_num]
-        pix = page.get_pixmap(dpi=220)  # High resolution for crisp drawing
-        img_bytes = pix.tobytes("png")
-        img = Image.open(io.BytesIO(img_bytes))
-
-        st.image(img, caption=f"Page {page_num + 1} — Draw over anything you want hidden", use_column_width=True)
-
-        # ====================== REDACTION CANVAS ======================
-        st.subheader("Draw your redactions")
-        st.info("Use **freedraw** to freely highlight anything (account numbers, names, addresses). Use **rect** for clean boxes.")
-
-        drawing_mode = st.selectbox("Tool", ["freedraw", "rect"], index=0)
-        stroke_width = st.slider("Brush thickness", 5, 60, 25)
-
-        canvas_result = st_canvas(
-            fill_color="rgba(0, 0, 0, 0.9)",      # Black fill for redactions
-            stroke_width=stroke_width,
-            stroke_color="#000000",
-            background_image=img,
-            update_streamlit=True,
-            height=img.height,
-            width=img.width,
-            drawing_mode=drawing_mode,
-            key=f"canvas_page_{page_num}",       # Unique key per page
+        # Render the PDF with text selection enabled
+        # This component returns a dictionary when text is highlighted
+        viewer_data = pdf_viewer(
+            input=st.session_state.pdf_bytes,
+            render_text=True,
+            annotations=st.session_state.redaction_queues  # Shows existing marks
         )
 
-        # ====================== APPLY REDACTION ======================
-        if st.button("✅ Apply Redactions to This Page", type="primary"):
-            if canvas_result.json_data is not None:
-                objects = canvas_result.json_data.get("objects", [])
-                if objects:
-                    # Scale canvas pixels → PDF points
-                    scale_x = page.rect.width / img.width
-                    scale_y = page.rect.height / img.height
+        # Capture new highlights from the viewer
+        if viewer_data and "last_selection" in viewer_data:
+            new_selection = viewer_data["last_selection"]
+            if new_selection not in st.session_state.redaction_queues:
+                st.session_state.redaction_queues.append(new_selection)
+                st.rerun()
 
-                    for obj in objects:
-                        # Every object (rect or freedraw path) has a bounding box
-                        if "left" in obj and "top" in obj and "width" in obj and "height" in obj:
-                            x0 = obj["left"] * scale_x
-                            y0 = obj["top"] * scale_y
-                            x1 = (obj["left"] + obj.get("width", 0)) * scale_x
-                            y1 = (obj["top"] + obj.get("height", 0)) * scale_y
+    with col2:
+        st.subheader("Redaction Queue")
+        
+        if not st.session_state.redaction_queues:
+            st.write("No items marked yet.")
+        else:
+            st.write(f"Items to redact: {len(st.session_state.redaction_queues)}")
+            if st.button("🗑️ Clear All Marks"):
+                st.session_state.redaction_queues = []
+                st.rerun()
 
-                            rect = fitz.Rect(x0, y0, x1, y1)
-                            page.add_redact_annot(rect, fill=(0, 0, 0))  # Black fill
+            st.divider()
 
-                    # This actually removes the text underneath and bakes in the black box
-                    page.apply_redactions()
-                    st.success(f"✅ Redactions permanently applied to page {page_num + 1}!")
-                    st.rerun()  # Refresh the image so you see the blacked-out areas
-                else:
-                    st.warning("Nothing drawn yet!")
-            else:
-                st.warning("Draw something first")
+            if st.button("🔒 Execute Permanent Redaction", type="primary"):
+                with st.spinner("Deleting text layers..."):
+                    # Open PDF from memory
+                    doc = fitz.open(stream=st.session_state.pdf_bytes, filetype="pdf")
+                    
+                    for item in st.session_state.redaction_queues:
+                        # item usually contains: page, x, y, width, height
+                        page = doc[item["page"] - 1]
+                        # Create a rectangle from coordinates
+                        rect = fitz.Rect(item["x"], item["y"], 
+                                         item["x"] + item["width"], 
+                                         item["y"] + item["height"])
+                        
+                        # Apply the "Burn"
+                        page.add_redact_annot(rect, fill=(0,0,0))
+                        page.apply_redactions()
 
-    # ====================== REDACTED PREVIEW & DOWNLOAD ======================
-    st.divider()
-    st.subheader("Redacted PDF Preview")
-    st.info("The image above now shows the permanent redactions. Scroll through pages to verify.")
+                    # Save the new version to session state
+                    st.session_state.pdf_bytes = doc.write()
+                    st.session_state.redaction_queues = [] # Clear queue after apply
+                    st.success("Redaction Complete!")
+                    st.rerun()
 
-    # Download button
-    redacted_bytes = doc.write()
-    st.download_button(
-        label="📥 Download Redacted PDF",
-        data=redacted_bytes,
-        file_name="redacted_statement.pdf",
-        mime="application/pdf",
-        use_container_width=True,
-    )
-
-    # Optional full redacted PDF viewer (iframe)
-    if st.toggle("Show full redacted PDF in browser"):
-        base64_pdf = redacted_bytes.decode("latin1") if isinstance(redacted_bytes, bytes) else redacted_bytes
-        pdf_display = f"""
-        <iframe src="data:application/pdf;base64,{base64_pdf}" 
-                width="100%" height="800px" 
-                type="application/pdf"></iframe>
-        """
-        st.markdown(pdf_display, unsafe_allow_html=True)
-
-    # ====================== SEND TO AI (placeholder for later) ======================
-    st.divider()
-    if st.button("🚀 Send Redacted PDF to AI for categorization", type="secondary"):
-        st.info("✅ Redacted PDF ready! (This is where you’ll call your AI model in the next phase)")
-        st.session_state.redacted_for_ai = redacted_bytes
-        # Future: st.switch_page or call your extraction function here
-
-else:
-    st.info("👆 Upload a PDF to begin redaction.")
-
-st.caption("Built as a clean MVP — permanent redaction using PyMuPDF (text is actually removed, not just covered).")
+    # ====================== DOWNLOAD ======================
+    if st.session_state.pdf_bytes:
+        st.divider()
+        st.download_button(
+            label="📥 Download Redacted PDF",
+            data=st.session_state.pdf_bytes,
+            file_name="redacted_statement.pdf",
+            mime="application/pdf"
+        )
