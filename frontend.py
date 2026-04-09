@@ -46,9 +46,27 @@ if st.session_state.pdf_bytes:
         # Capture new highlights from the viewer
         if viewer_data and "last_selection" in viewer_data:
             new_selection = viewer_data["last_selection"]
-            if new_selection not in st.session_state.redaction_queues:
-                st.session_state.redaction_queues.append(new_selection)
-                st.rerun()
+            if "redaction_queues" not in st.session_state:
+                st.session_state.redaction_queues = []
+            
+            # 2. Render the viewer
+            # We MUST pass the current queue back into 'annotations' so they stay visible
+            viewer_data = pdf_viewer(
+                input=st.session_state.pdf_bytes,
+                render_text=True,
+                annotations=st.session_state.redaction_queues  # This makes them "stick"
+            )
+            
+            # 3. The "Sync" Logic
+            # When you highlight, viewer_data updates. We need to grab that and save it.
+            if viewer_data and "last_selection" in viewer_data:
+                new_selection = viewer_data["last_selection"]
+                
+                # Check if this specific highlight is already in our list to avoid duplicates
+                if new_selection not in st.session_state.redaction_queues:
+                    st.session_state.redaction_queues.append(new_selection)
+                    # Rerun to force the viewer to show the new annotation we just added
+                    st.rerun()
 
     with col2:
         st.subheader("Redaction Queue")
