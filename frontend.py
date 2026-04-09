@@ -1,39 +1,45 @@
 import streamlit as st
 import fitz  # PyMuPDF
-import io
+from streamlit_pdf_viewer import pdf_viewer
 
-def redact_pdf(input_pdf_bytes, phrases_to_remove):
-    # 1. Open the PDF from memory
-    doc = fitz.open(stream=input_pdf_bytes, filetype="pdf")
-    
-    for page in doc:
-        for phrase in phrases_to_remove:
-            # 2. Find every instance of the sensitive phrase
-            areas = page.search_for(phrase)
-            for area in areas:
-                # 3. Add a "Redact" annotation
-                page.add_redact_annot(area, fill=(0, 0, 0))
-        
-        # 4. Apply the redactions (this permanently deletes the text)
-        page.apply_redactions()
-    
-    # 5. Save back to a memory buffer
-    output_buffer = io.BytesIO()
-    doc.save(output_buffer)
-    doc.close()
-    return output_buffer.getvalue()
+st.title("Interactive Privacy Shield 🛡️")
 
-# --- UI ---
-st.title("Local Redactor")
+if 'redactions' not in st.session_state:
+    st.session_state.redactions = [] # Store coordinates here
+
 uploaded_file = st.file_uploader("Upload Statement", type="pdf")
 
 if uploaded_file:
-    # User types what they want hidden (Account #, Name, etc.)
-    to_hide = st.text_input("Phrases to redact (comma separated)", "Account # 123, John Doe")
+    # 1. Display the PDF and capture selection events
+    # 'annotations' is where we pass back what we've already marked
+    v_annotations = st.session_state.redactions
     
-    if st.button("Redact & Preview"):
-        phrases = [p.strip() for p in to_hide.split(",")]
-        redacted_data = redact_pdf(uploaded_file.read(), phrases)
+    # This component now returns the coordinates of the user's mouse selection
+    viewer_output = pdf_viewer(
+        input=uploaded_file.read(),
+        annotations=v_annotations, # Shows current black boxes
+        render_text=True           # Allows text highlighting
+    )
+
+    # 2. Capture the "New" selection
+    if viewer_output:
+        # If the user dragged their mouse, it returns a 'last_selection'
+        new_box = viewer_output.get('last_selection')
+        if new_box and new_box not in st.session_state.redactions:
+            st.session_state.redactions.append(new_box)
+            st.rerun() # Refresh to show the new black box
+
+    # 3. Apply the actual Redaction
+    if st.button("Permanently Redact & Process"):
+        doc = fitz.open(stream=uploaded_file.getvalue(), filetype="pdf")
         
-        st.success("Redaction complete! This version is now safe to send to AI.")
-        # Now you would pass 'redacted_data' to your Gemini function
+        for box in st.session_state.redactions:
+            page = doc[box['page'] - 1] # PDF pages are 0-indexed in fitz
+            # Convert viewer coords to PDF coords
+            rect = fitz.Rect(box['x'], box['y'], box['x'] + box['w'], box['y'] + box['h'])
+            page.add_redact_annot(rect, fill=(0,0,0))
+            page.apply_redactions()
+        
+        final_pdf = doc.write()
+        st.success("Sensitive data erased! Sending to AI...")
+        # Now pass final_pdf to Gemini
