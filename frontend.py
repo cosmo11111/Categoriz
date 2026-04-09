@@ -4,7 +4,7 @@ import google.generativeai as genai
 import json
 
 # 1. Setup API (Use st.secrets in production)
-genai.configure(api_key="YOUR_GEMINI_API_KEY")
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 st.set_page_config(page_title="AI Expense Tracker", page_icon="💰")
