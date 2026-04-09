@@ -13,6 +13,7 @@ if "original_bytes" not in st.session_state:
     st.session_state.original_bytes = None
 if "working_doc" not in st.session_state:
     st.session_state.working_doc = None
+# Do NOT initialize current_page here
 
 # ====================== UPLOAD ======================
 uploaded_file = st.file_uploader("Upload your bank statement (PDF)", type="pdf")
@@ -20,7 +21,7 @@ uploaded_file = st.file_uploader("Upload your bank statement (PDF)", type="pdf")
 if uploaded_file and st.session_state.original_bytes is None:
     st.session_state.original_bytes = uploaded_file.getvalue()
     st.session_state.working_doc = fitz.open(stream=st.session_state.original_bytes, filetype="pdf")
-    st.session_state.current_page = 0
+    # REMOVE st.session_state.current_page = 0 from here
     st.success("PDF loaded! Start redacting below.")
 
 # ====================== MAIN APP ======================
@@ -33,24 +34,16 @@ if st.session_state.working_doc:
     with col1:
         st.subheader("Navigation")
         
-        # 1. REMOVE the 'value' argument entirely. 
-        # 2. Use the key "current_page". 
-        # Streamlit will now handle the sync automatically.
+        # Use a safe default for the key if it doesn't exist yet
+        if "current_page" not in st.session_state:
+            st.session_state.current_page = 0
+            
         page_num = st.slider(
             "Page", 
             min_value=0, 
             max_value=num_pages - 1, 
             key="current_page" 
         )
-
-        st.caption(f"Showing page {page_num + 1} of {num_pages}")
-
-        if st.button("🔄 Reset all redactions"):
-            st.session_state.working_doc = fitz.open(stream=st.session_state.original_bytes, filetype="pdf")
-            # To reset the slider to 0, we update the state directly
-            st.session_state.current_page = 0
-            st.rerun()
-
     with col2:
         # Render current page as high-res image
         page = doc[page_num]
