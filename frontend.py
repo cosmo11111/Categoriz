@@ -537,33 +537,113 @@ elif st.session_state.step == 3:
             <div class="metric"><div class="val" style="font-size:1rem;padding-top:4px">{top_cat}</div><div class="lbl">Biggest Category</div></div>
         </div>""", unsafe_allow_html=True)
 
-        # ── Category breakdown ────────────────────────────────────────────────
-        st.markdown("#### Spending by Category")
-        cat_totals = (df[df["amount"]<0]
-                      .groupby("category")["amount"]
-                      .sum()
-                      .abs()
-                      .sort_values(ascending=False))
+        # ── Category pie + vendor tables ─────────────────────────────────────
+        spend_df = df[df["amount"] < 0].copy()
+        spend_df["amount_abs"] = spend_df["amount"].abs()
+
+        cat_totals = (spend_df.groupby("category")["amount_abs"]
+                      .sum().sort_values(ascending=False))
 
         if not cat_totals.empty:
-            fig_bar = go.Figure(go.Bar(
-                x=cat_totals.values,
-                y=cat_totals.index,
-                orientation="h",
-                marker_color=[CATEGORY_COLORS.get(c,"#6b7280") for c in cat_totals.index],
-                text=[f"${v:,.2f}" for v in cat_totals.values],
-                textposition="outside",
-            ))
-            fig_bar.update_layout(
-                height=max(250, len(cat_totals)*42),
-                margin=dict(l=0,r=60,t=10,b=0),
-                paper_bgcolor="#1e1e28", plot_bgcolor="#1e1e28",
-                font=dict(color="#c9c7c0", size=12),
-                xaxis=dict(showgrid=True, gridcolor="#2a2a38", zeroline=False,
-                           showticklabels=False),
-                yaxis=dict(showgrid=False, tickfont=dict(size=12)),
-            )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            pie_col, vendor_col = st.columns([1, 1])
+
+            # ── Pie chart ────────────────────────────────────────────────
+            with pie_col:
+                st.markdown("#### Spending by Category")
+                pie_mode = st.radio(
+                    "Display", ["Value ($)", "Percentage (%)"],
+                    horizontal=True, label_visibility="collapsed",
+                    key="pie_mode",
+                )
+                show_pct = pie_mode == "Percentage (%)"
+
+                total_spend_abs = cat_totals.sum()
+                customdata = [
+                    [f"{v/total_spend_abs*100:.1f}%", f"${v:,.2f}"]
+                    for v in cat_totals.values
+                ]
+
+                fig_pie = go.Figure(go.Pie(
+                    labels=cat_totals.index.tolist(),
+                    values=cat_totals.values.tolist(),
+                    marker=dict(
+                        colors=[CATEGORY_COLORS.get(c, "#6b7280") for c in cat_totals.index],
+                        line=dict(color="#0f0f13", width=2),
+                    ),
+                    hole=0.52,
+                    textinfo="label+percent" if show_pct else "label",
+                    hovertemplate=(
+                        "<b>%{label}</b><br>"
+                        "$%{value:,.2f}<br>"
+                        "%{percent}<extra></extra>"
+                    ),
+                    customdata=customdata,
+                    # Show $ value or % in the slice labels
+                    texttemplate="%{label}<br>%{percent}" if show_pct else "%{label}<br>$%{value:,.0f}",
+                    textposition="outside",
+                    pull=[0.03] * len(cat_totals),
+                ))
+
+                # Centre annotation
+                centre_text = f"${total_spend_abs:,.0f}" if not show_pct else "100%"
+                fig_pie.update_layout(
+                    height=380,
+                    margin=dict(l=10, r=10, t=30, b=10),
+                    paper_bgcolor="#1e1e28",
+                    font=dict(color="#c9c7c0", size=11, family="DM Sans"),
+                    showlegend=False,
+                    annotations=[dict(
+                        text=f"<b>{centre_text}</b><br><span style='font-size:10px'>total spend</span>",
+                        x=0.5, y=0.5, font=dict(size=14, color="#e8e6e1"),
+                        showarrow=False,
+                    )],
+                )
+                st.plotly_chart(fig_pie, use_container_width=True)
+
+            # ── Vendor tables ────────────────────────────────────────────
+            with vendor_col:
+                st.markdown("#### Top Vendors")
+                vtab1, vtab2 = st.tabs(["💰 By Value", "🔢 By Charges"])
+
+                with vtab1:
+                    by_value = (spend_df.groupby("name")["amount_abs"]
+                                .sum()
+                                .sort_values(ascending=False)
+                                .head(3)
+                                .reset_index())
+                    by_value.columns = ["Vendor", "Total Spent"]
+                    by_value["Total Spent"] = by_value["Total Spent"].map(lambda x: f"${x:,.2f}")
+                    by_value.index = by_value.index + 1  # 1-based rank
+                    st.dataframe(
+                        by_value,
+                        use_container_width=True,
+                        height=340,
+                        column_config={
+                            "Vendor":      st.column_config.TextColumn("Vendor"),
+                            "Total Spent": st.column_config.TextColumn("Total Spent"),
+                        },
+                    )
+
+                with vtab2:
+                    by_count = (spend_df.groupby("name")
+                                .agg(Charges=("amount_abs", "count"),
+                                     Total=("amount_abs", "sum"))
+                                .sort_values("Charges", ascending=False)
+                                .head(3)
+                                .reset_index())
+                    by_count.columns = ["Vendor", "Charges", "Total Spent"]
+                    by_count["Total Spent"] = by_count["Total Spent"].map(lambda x: f"${x:,.2f}")
+                    by_count.index = by_count.index + 1
+                    st.dataframe(
+                        by_count,
+                        use_container_width=True,
+                        height=340,
+                        column_config={
+                            "Vendor":      st.column_config.TextColumn("Vendor"),
+                            "Charges":     st.column_config.NumberColumn("Charges"),
+                            "Total Spent": st.column_config.TextColumn("Total Spent"),
+                        },
+                    )
 
         # ── Transaction table ─────────────────────────────────────────────────
         st.markdown("#### All Transactions")
