@@ -4,105 +4,78 @@ import pdfplumber
 import io
 import base64
 import json
-from PIL import Image
-import streamlit.components.v1 as components
+import plotly.graph_objects as go
 
 # ── Page config ───────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="PDF Highlighter",
-    page_icon="🖊️",
-    layout="wide",
-)
+st.set_page_config(page_title="PDF Highlighter", page_icon="🖊️", layout="wide")
 
-# ── Styling ───────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    .stApp { background-color: #f5f5f0; }
-    .main-title {
-        font-size: 2rem; font-weight: 700; color: #1a1a2e;
-        margin-bottom: 0; padding-bottom: 0;
-    }
-    .subtitle {
-        font-size: 0.95rem; color: #555; margin-top: 0;
-        margin-bottom: 1.5rem;
-    }
-    .info-box {
-        background: #fffbea; border-left: 4px solid #f0c040;
-        padding: 0.75rem 1rem; border-radius: 4px;
-        font-size: 0.88rem; color: #555; margin-bottom: 1rem;
-    }
-    .stat-box {
-        background: white; border-radius: 8px; padding: 0.75rem 1rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08); text-align: center;
-    }
+  .stApp { background-color: #f5f5f0; }
+  .info-box {
+    background:#fffbea; border-left:4px solid #f0c040;
+    padding:.75rem 1rem; border-radius:4px;
+    font-size:.88rem; color:#555; margin-bottom:.5rem;
+  }
+  .stat-box {
+    background:white; border-radius:8px; padding:.75rem 1rem;
+    box-shadow:0 1px 3px rgba(0,0,0,.08); text-align:center;
+  }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Session state defaults ────────────────────────────────────────────────────
-for key, default in [
-    ("page_num", 0),
-    ("highlights", {}),
-    ("pdf_bytes", None),
-    ("zoom", 1.5),
-]:
-    if key not in st.session_state:
-        st.session_state[key] = default
-
 # ── Constants ─────────────────────────────────────────────────────────────────
-HIGHLIGHT_COLORS_RGB = {
-    "Yellow":  (1,    1,    0   ),
-    "Green":   (0,    1,    0.4 ),
-    "Cyan":    (0,    0.9,  1   ),
-    "Pink":    (1,    0.4,  0.7 ),
-    "Orange":  (1,    0.6,  0   ),
+COLORS_RGB = {
+    "Yellow": (1, 1, 0),      "Green":  (0, 1, 0.4),
+    "Cyan":   (0, 0.9, 1),    "Pink":   (1, 0.4, 0.7),
+    "Orange": (1, 0.6, 0),
 }
-CANVAS_COLORS = {
-    "Yellow":  "rgba(255,255,  0,0.35)",
-    "Green":   "rgba(  0,255,100,0.35)",
-    "Cyan":    "rgba(  0,230,255,0.35)",
-    "Pink":    "rgba(255,100,180,0.35)",
-    "Orange":  "rgba(255,153,  0,0.35)",
+COLORS_RGBA = {
+    "Yellow": "rgba(255,255,0,0.35)",    "Green":  "rgba(0,255,100,0.35)",
+    "Cyan":   "rgba(0,220,255,0.35)",    "Pink":   "rgba(255,100,180,0.35)",
+    "Orange": "rgba(255,153,0,0.35)",
 }
+COLORS_LINE = {
+    "Yellow": "rgba(200,180,0,0.8)",     "Green":  "rgba(0,180,80,0.8)",
+    "Cyan":   "rgba(0,180,220,0.8)",     "Pink":   "rgba(220,60,150,0.8)",
+    "Orange": "rgba(220,120,0,0.8)",
+}
+
+# ── Session state ─────────────────────────────────────────────────────────────
+for k, v in [("page_num", 0), ("highlights", {}), ("pdf_bytes", None), ("zoom", 1.5)]:
+    if k not in st.session_state:
+        st.session_state[k] = v
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def render_page_b64(pdf_bytes: bytes, page_num: int, zoom: float):
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    page = doc[page_num]
-    mat = fitz.Matrix(zoom, zoom)
-    pix = page.get_pixmap(matrix=mat, alpha=False)
-    img_bytes = pix.tobytes("png")
+    pix = doc[page_num].get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
     doc.close()
-    b64 = base64.b64encode(img_bytes).decode()
+    b64 = base64.b64encode(pix.tobytes("png")).decode()
     return b64, pix.width, pix.height
 
 
-def snap_to_words(pdf_bytes, page_num, rect, zoom):
+def snap_to_words(pdf_bytes, page_num, rect):
     x0, y0, x1, y1 = rect
-    snapped = []
+    hits = []
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        page = pdf.pages[page_num]
-        for word in (page.extract_words() or []):
-            wx0, wy0, wx1, wy1 = word["x0"], word["top"], word["x1"], word["bottom"]
-            if wx0 < x1 and wx1 > x0 and wy0 < y1 and wy1 > y0:
-                snapped.append((wx0, wy0, wx1, wy1))
-    if not snapped:
+        for w in (pdf.pages[page_num].extract_words() or []):
+            if w["x0"] < x1 and w["x1"] > x0 and w["top"] < y1 and w["bottom"] > y0:
+                hits.append((w["x0"], w["top"], w["x1"], w["bottom"]))
+    if not hits:
         return rect
-    return (
-        min(w[0] for w in snapped), min(w[1] for w in snapped),
-        max(w[2] for w in snapped), max(w[3] for w in snapped),
-    )
+    return (min(h[0] for h in hits), min(h[1] for h in hits),
+            max(h[2] for h in hits), max(h[3] for h in hits))
 
 
-def build_annotated_pdf(original_bytes, highlights):
+def build_pdf(original_bytes, highlights):
     doc = fitz.open(stream=original_bytes, filetype="pdf")
-    for page_num_str, page_highlights in highlights.items():
-        page = doc[int(page_num_str)]
-        for h in page_highlights:
-            rect = fitz.Rect(*h["rect"])
-            color_rgb = HIGHLIGHT_COLORS_RGB.get(h["color"], (1, 1, 0))
-            annot = page.add_highlight_annot(rect)
-            annot.set_colors(stroke=color_rgb)
+    for pn, hl_list in highlights.items():
+        page = doc[int(pn)]
+        for h in hl_list:
+            annot = page.add_highlight_annot(fitz.Rect(*h["rect"]))
+            annot.set_colors(stroke=COLORS_RGB.get(h["color"], (1, 1, 0)))
             annot.update()
     buf = io.BytesIO()
     doc.save(buf)
@@ -110,94 +83,64 @@ def build_annotated_pdf(original_bytes, highlights):
     return buf.getvalue()
 
 
-def make_canvas_html(b64_img, img_w, img_h, fill_color, existing):
-    existing_json = json.dumps(existing)
-    return f"""<!DOCTYPE html>
-<html>
-<head>
-<style>
-  body {{ margin:0; padding:0; overflow:hidden; background:transparent; }}
-  #c {{ cursor:crosshair; display:block; }}
-  #hint {{ font-family:sans-serif; font-size:12px; color:#888;
-           padding:4px 0 0 2px; }}
-</style>
-</head>
-<body>
-<canvas id="c" width="{img_w}" height="{img_h}"></canvas>
-<div id="hint">Drag to highlight · release to confirm</div>
-<script>
-const canvas = document.getElementById('c');
-const ctx    = canvas.getContext('2d');
-const fill   = "{fill_color}";
-const saved  = {existing_json};
+def make_figure(b64: str, img_w: int, img_h: int,
+                saved_highlights: list, color: str) -> go.Figure:
+    """
+    Build a Plotly figure with the PDF page as background image.
+    dragmode='drawrect' lets users draw rectangles natively.
+    Saved highlights are drawn as filled shapes.
+    """
+    fig = go.Figure()
 
-const img = new Image();
-img.src = "data:image/png;base64,{b64_img}";
+    # Invisible scatter so Plotly sets up axes properly
+    fig.add_trace(go.Scatter(x=[0, img_w], y=[0, img_h],
+                             mode="markers", marker=dict(opacity=0),
+                             showlegend=False, hoverinfo="none"))
 
-function redraw(active) {{
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(img, 0, 0);
-  saved.forEach(r => {{
-    ctx.fillStyle = r.color;
-    ctx.fillRect(r.x, r.y, r.w, r.h);
-  }});
-  if (active) {{
-    ctx.fillStyle = fill;
-    ctx.fillRect(active.x, active.y, active.w, active.h);
-  }}
-}}
+    # PDF page as background
+    fig.add_layout_image(dict(
+        source=f"data:image/png;base64,{b64}",
+        xref="x", yref="y",
+        x=0, y=img_h,
+        sizex=img_w, sizey=img_h,
+        sizing="stretch",
+        layer="below",
+    ))
 
-img.onload = () => redraw(null);
+    # Draw existing highlights as filled rectangles
+    shapes = []
+    for h in saved_highlights:
+        x0, y0_pdf, x1, y1_pdf = h["rect"]
+        # Plotly y-axis is flipped vs PDF (PDF: 0=top, Plotly: 0=bottom)
+        shapes.append(dict(
+            type="rect",
+            xref="x", yref="y",
+            x0=x0, x1=x1,
+            y0=img_h - y1_pdf, y1=img_h - y0_pdf,
+            fillcolor=COLORS_RGBA.get(h["color"], "rgba(255,255,0,0.35)"),
+            line=dict(width=0),
+            layer="above",
+        ))
 
-let sx, sy, dragging = false;
+    fig.update_layout(
+        width=img_w,
+        height=img_h,
+        margin=dict(l=0, r=0, t=0, b=0),
+        xaxis=dict(range=[0, img_w], showgrid=False, zeroline=False,
+                   showticklabels=False, fixedrange=True),
+        yaxis=dict(range=[0, img_h], showgrid=False, zeroline=False,
+                   showticklabels=False, fixedrange=True, scaleanchor="x"),
+        dragmode="drawrect",
+        newshape=dict(
+            fillcolor=COLORS_RGBA[color],
+            line=dict(color=COLORS_LINE[color], width=1),
+        ),
+        shapes=shapes,
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+    )
 
-function getPos(e) {{
-  const r = canvas.getBoundingClientRect();
-  const src = e.touches ? e.touches[0] : e;
-  return [src.clientX - r.left, src.clientY - r.top];
-}}
-
-function onStart(e) {{
-  e.preventDefault();
-  [sx, sy] = getPos(e);
-  dragging = true;
-}}
-
-function onMove(e) {{
-  e.preventDefault();
-  if (!dragging) return;
-  const [ex, ey] = getPos(e);
-  redraw({{ x: sx, y: sy, w: ex - sx, h: ey - sy }});
-}}
-
-function onEnd(e) {{
-  e.preventDefault();
-  if (!dragging) return;
-  dragging = false;
-  const src = e.changedTouches ? e.changedTouches[0] : e;
-  const r   = canvas.getBoundingClientRect();
-  const ex  = src.clientX - r.left;
-  const ey  = src.clientY - r.top;
-  const w = ex - sx, h = ey - sy;
-  if (Math.abs(w) < 5 || Math.abs(h) < 5) {{ redraw(null); return; }}
-  const rect = {{
-    x: w >= 0 ? sx : ex, y: h >= 0 ? sy : ey,
-    w: Math.abs(w),       h: Math.abs(h)
-  }};
-  redraw(null);
-  window.parent.postMessage({{ type:"pdf_highlight", rect }}, "*");
-}}
-
-canvas.addEventListener('mousedown',  onStart);
-canvas.addEventListener('mousemove',  onMove);
-canvas.addEventListener('mouseup',    onEnd);
-canvas.addEventListener('touchstart', onStart, {{passive:false}});
-canvas.addEventListener('touchmove',  onMove,  {{passive:false}});
-canvas.addEventListener('touchend',   onEnd,   {{passive:false}});
-</script>
-</body>
-</html>"""
-
+    return fig
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -205,181 +148,151 @@ with st.sidebar:
     st.markdown("---")
     uploaded = st.file_uploader("Upload a PDF", type=["pdf"])
     if uploaded:
-        new_bytes = uploaded.read()
-        if new_bytes != st.session_state.pdf_bytes:
-            st.session_state.pdf_bytes = new_bytes
+        b = uploaded.read()
+        if b != st.session_state.pdf_bytes:
+            st.session_state.pdf_bytes = b
             st.session_state.page_num = 0
             st.session_state.highlights = {}
             render_page_b64.clear()
 
-    st.markdown("### Highlight colour")
-    color_choice = st.selectbox("Colour", list(HIGHLIGHT_COLORS_RGB.keys()),
-                                label_visibility="collapsed")
-
-    st.markdown("### Zoom")
-    zoom = st.slider("Zoom", 1.0, 3.0, 1.5, 0.25, label_visibility="collapsed")
+    color = st.selectbox("Highlight colour", list(COLORS_RGB.keys()))
+    zoom  = st.slider("Zoom", 1.0, 3.0, st.session_state.zoom, 0.25)
     if zoom != st.session_state.zoom:
         st.session_state.zoom = zoom
         render_page_b64.clear()
-
-    st.markdown("### Options")
     snap = st.toggle("Snap to word boundaries", value=True)
 
     st.markdown("---")
     total_h = sum(len(v) for v in st.session_state.highlights.values())
     if total_h:
-        st.markdown(f"**{total_h}** highlight{'s' if total_h != 1 else ''} added")
+        st.caption(f"{total_h} highlight{'s' if total_h != 1 else ''} total")
     if st.button("🗑️ Clear all highlights", use_container_width=True):
         st.session_state.highlights = {}
         st.rerun()
 
 # ── Main ──────────────────────────────────────────────────────────────────────
-st.markdown('<p class="main-title">PDF Highlighter</p>', unsafe_allow_html=True)
-st.markdown(
-    '<p class="subtitle">Upload a PDF → drag to select text → download with highlights</p>',
-    unsafe_allow_html=True,
-)
+st.markdown("## 🖊️ PDF Highlighter")
+st.caption("Upload a PDF · drag to draw a rectangle · click **Add Highlight** · download")
 
 if not st.session_state.pdf_bytes:
-    st.markdown('<div class="info-box">👆 Upload a PDF using the sidebar to get started.</div>',
+    st.markdown('<div class="info-box">👆 Upload a PDF in the sidebar to begin.</div>',
                 unsafe_allow_html=True)
     st.stop()
 
 pdf_bytes = st.session_state.pdf_bytes
-doc_tmp = fitz.open(stream=pdf_bytes, filetype="pdf")
-total_pages = len(doc_tmp)
-doc_tmp.close()
+doc_tmp   = fitz.open(stream=pdf_bytes, filetype="pdf")
+n_pages   = len(doc_tmp); doc_tmp.close()
 
 # Page navigation
-col1, col2, col3 = st.columns([1, 3, 1])
-with col1:
+c1, c2, c3 = st.columns([1, 4, 1])
+with c1:
     if st.button("◀ Prev", use_container_width=True,
                  disabled=st.session_state.page_num == 0):
-        st.session_state.page_num -= 1
-        st.rerun()
-with col2:
-    st.markdown(
-        f"<div style='text-align:center;padding-top:6px;font-weight:600;color:#333'>"
-        f"Page {st.session_state.page_num + 1} of {total_pages}</div>",
-        unsafe_allow_html=True,
-    )
-with col3:
+        st.session_state.page_num -= 1; st.rerun()
+with c2:
+    st.markdown(f"<p style='text-align:center;margin:6px 0;font-weight:600'>"
+                f"Page {st.session_state.page_num + 1} of {n_pages}</p>",
+                unsafe_allow_html=True)
+with c3:
     if st.button("Next ▶", use_container_width=True,
-                 disabled=st.session_state.page_num == total_pages - 1):
-        st.session_state.page_num += 1
-        st.rerun()
+                 disabled=st.session_state.page_num == n_pages - 1):
+        st.session_state.page_num += 1; st.rerun()
 
-st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-page_num = st.session_state.page_num
-zoom     = st.session_state.zoom
-b64_img, img_w, img_h = render_page_b64(pdf_bytes, page_num, zoom)
-page_key = str(page_num)
-saved    = st.session_state.highlights.get(page_key, [])
-
-existing_canvas = [
-    {
-        "x": h["rect"][0] * zoom,
-        "y": h["rect"][1] * zoom,
-        "w": (h["rect"][2] - h["rect"][0]) * zoom,
-        "h": (h["rect"][3] - h["rect"][1]) * zoom,
-        "color": CANVAS_COLORS.get(h["color"], "rgba(255,255,0,0.35)"),
-    }
-    for h in saved
-]
+pn = st.session_state.page_num
+zm = st.session_state.zoom
+b64, img_w, img_h = render_page_b64(pdf_bytes, pn, zm)
+pk = str(pn)
+saved_hl = st.session_state.highlights.get(pk, [])
 
 st.markdown(
-    '<div class="info-box">🖱️ <strong>Click and drag</strong> over text to highlight. '
-    'After dragging, click <strong>Apply highlight</strong> below.</div>',
+    '<div class="info-box">'
+    '🖱️ <b>Click and drag</b> on the PDF to draw a yellow box. '
+    'Then click <b>Add Highlight</b> to save it. '
+    'Use the toolbar top-right of the chart to zoom/pan/reset.'
+    '</div>',
     unsafe_allow_html=True,
 )
 
-# Render the HTML5 canvas
-components.html(
-    make_canvas_html(b64_img, img_w, img_h, CANVAS_COLORS[color_choice], existing_canvas),
-    height=img_h + 30,
-    scrolling=False,
+fig = make_figure(b64, img_w, img_h, saved_hl, color)
+
+# st.plotly_chart with on_select captures drawn shapes
+event_data = st.plotly_chart(
+    fig,
+    use_container_width=False,
+    key=f"chart_{pn}_{zm}",
+    on_select="rerun",   # rerun when user draws/selects
+    selection_mode=["box"],
 )
 
-# ── Capture rect from canvas via hidden text input ────────────────────────────
-# JS posts a message; we intercept it and inject it into a Streamlit text_input
-st.markdown("""
-<script>
-window.addEventListener("message", function(e) {
-    if (!e.data || e.data.type !== "pdf_highlight") return;
-    const json = JSON.stringify(e.data.rect);
-    // Find our target input by its data-testid or placeholder
-    const inputs = window.parent.document.querySelectorAll('input[type="text"]');
-    for (const inp of inputs) {
-        if (inp.dataset.rectTarget === "1" ||
-            (inp.placeholder && inp.placeholder.includes("rect-data"))) {
-            inp.value = json;
-            inp.dispatchEvent(new Event("input", {bubbles: true}));
-            break;
-        }
-    }
-});
-</script>
-""", unsafe_allow_html=True)
+# ── Parse the newly drawn shape ───────────────────────────────────────────────
+# Plotly returns drawn shapes via event_data.selection.box (Streamlit ≥1.33)
+# and also via the relayout event captured in the figure's shapes list.
+new_rect = None
 
-rect_json = st.text_input(
-    "rect-data",
-    key="rect_input",
-    label_visibility="collapsed",
-    placeholder="rect-data — auto-filled after drag",
-)
+# Method 1: relayout shapes (most reliable) — Plotly appends drawn rects
+# to fig.layout.shapes; Streamlit exposes these via the chart's return value.
+try:
+    sel = event_data.selection  # type: ignore
+    # Drawn rectangles show up in sel.box as [{x, y}] pairs
+    boxes = getattr(sel, "box", []) or []
+    if boxes:
+        box = boxes[-1]  # take the most recent
+        xs = box.get("x", [])
+        ys = box.get("y", [])
+        if len(xs) >= 2 and len(ys) >= 2:
+            # Plotly coords: y is in Plotly space (0=bottom), convert to PDF space (0=top)
+            cx0, cx1 = min(xs), max(xs)
+            py_lo, py_hi = min(ys), max(ys)
+            # PDF y: 0 at top → invert
+            pdf_y0 = img_h - py_hi
+            pdf_y1 = img_h - py_lo
+            new_rect = (cx0, pdf_y0, cx1, pdf_y1)
+except Exception:
+    pass
 
-col_apply, col_undo = st.columns(2)
-with col_apply:
-    if st.button("✅ Apply highlight", use_container_width=True):
-        raw = (rect_json or "").strip()
-        if raw:
-            try:
-                r = json.loads(raw)
-                cx, cy, cw, ch = r["x"], r["y"], r["w"], r["h"]
-                px0, py0 = cx / zoom, cy / zoom
-                px1, py1 = (cx + cw) / zoom, (cy + ch) / zoom
-                if snap:
-                    px0, py0, px1, py1 = snap_to_words(
-                        pdf_bytes, page_num, (px0, py0, px1, py1), zoom
-                    )
-                hl = {"rect": [px0, py0, px1, py1], "color": color_choice}
-                st.session_state.highlights.setdefault(page_key, []).append(hl)
-                st.rerun()
-            except Exception as ex:
-                st.error(f"Could not parse selection: {ex}")
+# ── Action buttons ────────────────────────────────────────────────────────────
+b1, b2 = st.columns(2)
+with b1:
+    if st.button("✅ Add Highlight", use_container_width=True, type="primary"):
+        if new_rect is None:
+            st.warning("Draw a rectangle on the PDF first, then click Add Highlight.")
         else:
-            st.warning("Draw a selection on the PDF first.")
+            x0, y0, x1, y1 = new_rect
+            # Convert from canvas pixels → PDF points (undo zoom)
+            px0, py0, px1, py1 = x0/zm, y0/zm, x1/zm, y1/zm
+            if snap:
+                px0, py0, px1, py1 = snap_to_words(pdf_bytes, pn, (px0, py0, px1, py1))
+            st.session_state.highlights.setdefault(pk, []).append(
+                {"rect": [px0, py0, px1, py1], "color": color}
+            )
+            st.rerun()
 
-with col_undo:
-    if st.button("↩️ Undo last", use_container_width=True):
-        if st.session_state.highlights.get(page_key):
-            st.session_state.highlights[page_key].pop()
-            if not st.session_state.highlights[page_key]:
-                del st.session_state.highlights[page_key]
+with b2:
+    if st.button("↩️ Undo last highlight", use_container_width=True):
+        if st.session_state.highlights.get(pk):
+            st.session_state.highlights[pk].pop()
+            if not st.session_state.highlights[pk]:
+                del st.session_state.highlights[pk]
             st.rerun()
 
 # ── Download ──────────────────────────────────────────────────────────────────
 st.markdown("---")
-total_highlights = sum(len(v) for v in st.session_state.highlights.values())
-
-dl_col, stat_col = st.columns([3, 1])
-with stat_col:
+total = sum(len(v) for v in st.session_state.highlights.values())
+dc, sc = st.columns([3, 1])
+with sc:
     st.markdown(
-        f"<div class='stat-box'><strong style='font-size:1.4rem'>{total_highlights}</strong>"
-        f"<br><span style='font-size:0.8rem;color:#888'>"
-        f"highlight{'s' if total_highlights != 1 else ''}</span></div>",
+        f"<div class='stat-box'><b style='font-size:1.5rem'>{total}</b><br>"
+        f"<span style='font-size:.8rem;color:#888'>highlight{'s' if total!=1 else ''}</span></div>",
         unsafe_allow_html=True,
     )
-with dl_col:
-    if total_highlights > 0:
-        annotated = build_annotated_pdf(pdf_bytes, st.session_state.highlights)
+with dc:
+    if total > 0:
         st.download_button(
-            label="⬇️ Download highlighted PDF",
-            data=annotated,
+            "⬇️ Download highlighted PDF",
+            data=build_pdf(pdf_bytes, st.session_state.highlights),
             file_name="highlighted.pdf",
             mime="application/pdf",
             use_container_width=True,
         )
     else:
-        st.info("Draw highlights on the page above, then download here.")
+        st.info("Add highlights above, then download here.")
