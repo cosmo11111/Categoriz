@@ -1,133 +1,31 @@
-import streamlit as st
 import fitz  # PyMuPDF
-from streamlit_pdf_viewer import pdf_viewer
-import io
+import pdfplumber
+import tkinter as tk
+from PIL import Image, ImageTk
 
-st.set_page_config(page_title="Highlighter Redactor", layout="wide")
-st.title("📑 Highlight to Redact")
-st.caption("Upload → Swipe text to highlight → Execute permanent blackout")
+class PDFAnnotator:
+    def __init__(self, pdf_path):
+        self.doc = fitz.open(pdf_path)
+        self.plumber = pdfplumber.open(pdf_path)
+        self.page_num = 0
+        self.scale = 1.5  # zoom factor
+        # ... setup Tkinter window, bind mouse events
 
-# ====================== SESSION STATE ======================
-if "pdf_bytes" not in st.session_state:
-    st.session_state.pdf_bytes = None
-if "redaction_queues" not in st.session_state:
-    st.session_state.redaction_queues = []  # Stores selection coordinates
+    def render_page(self):
+        page = self.doc[self.page_num]
+        mat = fitz.Matrix(self.scale, self.scale)
+        pix = page.get_pixmap(matrix=mat)
+        # Convert to PIL Image → ImageTk for display
 
-# ====================== UPLOAD ======================
-uploaded_file = st.file_uploader("Upload bank statement", type="pdf")
-
-if uploaded_file:
-    st.session_state.pdf_bytes = uploaded_file.read()
-
-# ====================== MAIN UI ======================
-from streamlit_annotation_tools import pdf_labeler
-
-if "my_boxes" not in st.session_state:
-    st.session_state.my_boxes = []
-
-# This call handles the "Sticking"
-new_labels = pdf_labeler(
-    "statement.pdf",
-    labels=["REDACT"],
-    annotations=st.session_state.my_boxes
-)
-
-# If the user added a new highlight, update the state
-if new_labels is not None and new_labels != st.session_state.my_boxes:
-    st.session_state.my_boxes = new_labels
-    st.rerun()
-
-
-if st.session_state.pdf_bytes:
-    doc = fitz.open(stream=st.session_state.pdf_bytes, filetype="pdf")
-    first_page_text = doc[0].get_text()
-    
-    if not first_page_text.strip():
-        st.error("🚨 This PDF is a scanned image. There is no selectable text layer for the highlighter to grab.")
-    else:
-        st.write("✅ Text detected in PDF. Highlighting should be possible.")
-        
-    col1, col2 = st.columns([2, 1])
-
-    with col1:
-        st.subheader("PDF Viewer")
-        st.info("💡 Click and drag your mouse over text to mark it for redaction.")
-        
-        # Render the PDF with text selection enabled
-        # This component returns a dictionary when text is highlighted
-        viewer_data = pdf_viewer(
-            input=st.session_state.pdf_bytes,
-            render_text=True,
-            annotations=st.session_state.redaction_queues  # Shows existing marks
-        )
-
-        # Capture new highlights from the viewer
-        if viewer_data and "last_selection" in viewer_data:
-            new_selection = viewer_data["last_selection"]
-            if "redaction_queues" not in st.session_state:
-                st.session_state.redaction_queues = []
-            
-            # 2. Render the viewer
-            # We MUST pass the current queue back into 'annotations' so they stay visible
-            viewer_data = pdf_viewer(
-                input=st.session_state.pdf_bytes,
-                render_text=True,
-                annotations=st.session_state.redaction_queues  # This makes them "stick"
-            )
-            
-            # 3. The "Sync" Logic
-            # When you highlight, viewer_data updates. We need to grab that and save it.
-            if viewer_data and "last_selection" in viewer_data:
-                new_selection = viewer_data["last_selection"]
-                
-                # Check if this specific highlight is already in our list to avoid duplicates
-                if new_selection not in st.session_state.redaction_queues:
-                    st.session_state.redaction_queues.append(new_selection)
-                    # Rerun to force the viewer to show the new annotation we just added
-                    st.rerun()
-
-    with col2:
-        st.subheader("Redaction Queue")
-        
-        if not st.session_state.redaction_queues:
-            st.write("No items marked yet.")
-        else:
-            st.write(f"Items to redact: {len(st.session_state.redaction_queues)}")
-            if st.button("🗑️ Clear All Marks"):
-                st.session_state.redaction_queues = []
-                st.rerun()
-
-            st.divider()
-
-            if st.button("🔒 Execute Permanent Redaction", type="primary"):
-                with st.spinner("Deleting text layers..."):
-                    # Open PDF from memory
-                    doc = fitz.open(stream=st.session_state.pdf_bytes, filetype="pdf")
-                    
-                    for item in st.session_state.redaction_queues:
-                        # item usually contains: page, x, y, width, height
-                        page = doc[item["page"] - 1]
-                        # Create a rectangle from coordinates
-                        rect = fitz.Rect(item["x"], item["y"], 
-                                         item["x"] + item["width"], 
-                                         item["y"] + item["height"])
-                        
-                        # Apply the "Burn"
-                        page.add_redact_annot(rect, fill=(0,0,0))
-                        page.apply_redactions()
-
-                    # Save the new version to session state
-                    st.session_state.pdf_bytes = doc.write()
-                    st.session_state.redaction_queues = [] # Clear queue after apply
-                    st.success("Redaction Complete!")
-                    st.rerun()
-
-    # ====================== DOWNLOAD ======================
-    if st.session_state.pdf_bytes:
-        st.divider()
-        st.download_button(
-            label="📥 Download Redacted PDF",
-            data=st.session_state.pdf_bytes,
-            file_name="redacted_statement.pdf",
-            mime="application/pdf"
-        )
+    def on_drag_end(self, event):
+        # Convert screen coords → PDF coords
+        x0 = self.drag_start_x / self.scale
+        y0 = self.drag_start_y / self.scale
+        x1 = event.x / self.scale
+        y1 = event.y / self.scale
+        # Find words in pdfplumber within that rect
+        # Add highlight annotation via fitz
+        page = self.doc[self.page_num]
+        rect = fitz.Rect(x0, y0, x1, y1)
+        page.add_highlight_annot(rect)
+        self.doc.save("annotated.pdf")
