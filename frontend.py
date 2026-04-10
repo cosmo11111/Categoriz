@@ -1,29 +1,107 @@
 import streamlit as st
-import fitz  # PyMuPDF
+import fitz
 import pdfplumber
 import io
 import base64
+import json
 import plotly.graph_objects as go
-
+import google.generativeai as genai
+import pandas as pd
+ 
 # ── Page config ───────────────────────────────────────────────────────────────
-st.set_page_config(page_title="PDF Annotator", page_icon="🖊️", layout="wide")
-
+st.set_page_config(page_title="Expense Categorizer", page_icon="💳", layout="wide")
+ 
 st.markdown("""
 <style>
-  .stApp { background-color: #f5f5f0; }
-  .info-box {
-    background:#fffbea; border-left:4px solid #f0c040;
-    padding:.75rem 1rem; border-radius:4px;
-    font-size:.88rem; color:#555; margin-bottom:.5rem;
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+ 
+  html, body, .stApp { font-family: 'DM Sans', sans-serif; background-color: #0f0f13; color: #e8e6e1; }
+ 
+  /* Sidebar */
+  section[data-testid="stSidebar"] { background: #17171d !important; border-right: 1px solid #2a2a35; }
+  section[data-testid="stSidebar"] * { color: #c9c7c0 !important; }
+  section[data-testid="stSidebar"] .stSelectbox label,
+  section[data-testid="stSidebar"] .stSlider label { color: #888 !important; }
+ 
+  /* Step badges */
+  .step-badge {
+    display:inline-flex; align-items:center; gap:10px;
+    background:#1e1e28; border:1px solid #2e2e3e;
+    border-radius:12px; padding:14px 20px; margin-bottom:12px; width:100%;
   }
-  .info-box.blue { background:#e8f4fd; border-left-color:#3b9ede; }
-  .stat-box {
-    background:white; border-radius:8px; padding:.75rem 1rem;
-    box-shadow:0 1px 3px rgba(0,0,0,.08); text-align:center;
+  .step-num {
+    width:28px; height:28px; border-radius:50%;
+    background:#f0c040; color:#0f0f13;
+    font-weight:700; font-size:13px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .step-num.done { background:#34d399; }
+  .step-num.active { background:#f0c040; box-shadow: 0 0 12px rgba(240,192,64,0.4); }
+  .step-text { font-size:14px; color:#c9c7c0; line-height:1.4; }
+  .step-text b { color:#e8e6e1; }
+ 
+  /* Info boxes */
+  .info-box {
+    background:#1a1a24; border-left:3px solid #f0c040;
+    padding:.7rem 1rem; border-radius:6px;
+    font-size:.85rem; color:#aaa; margin-bottom:.75rem;
+  }
+  .info-box.green { border-left-color:#34d399; background:#0f1f1a; }
+  .info-box.blue  { border-left-color:#60a5fa; background:#0f1624; }
+  .info-box.red   { border-left-color:#f87171; background:#1f0f0f; }
+ 
+  /* Cards */
+  .card {
+    background:#1e1e28; border:1px solid #2a2a38;
+    border-radius:12px; padding:20px; margin-bottom:16px;
+  }
+  .card h3 { margin:0 0 4px; font-size:1rem; color:#e8e6e1; }
+  .card p  { margin:0; font-size:.82rem; color:#888; }
+ 
+  /* Metric strip */
+  .metric-strip { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+  .metric {
+    background:#1e1e28; border:1px solid #2a2a38;
+    border-radius:10px; padding:14px 18px; flex:1; min-width:120px;
+  }
+  .metric .val { font-size:1.5rem; font-weight:600; font-family:'DM Mono',monospace; color:#f0c040; }
+  .metric .lbl { font-size:.75rem; color:#666; margin-top:2px; }
+ 
+  /* Category pill */
+  .pill {
+    display:inline-block; padding:2px 10px; border-radius:20px;
+    font-size:.75rem; font-weight:500; background:#2a2a38; color:#c9c7c0;
+  }
+ 
+  /* Redact warning */
+  .redact-warn {
+    background:#1f1008; border:1px solid #f59e0b44;
+    border-radius:8px; padding:12px 16px; font-size:.83rem; color:#d97706;
+    margin-bottom:12px;
+  }
+ 
+  /* Override Streamlit dataframe for dark theme */
+  .stDataFrame { border-radius:8px; overflow:hidden; }
+ 
+  /* Buttons */
+  .stButton button {
+    border-radius:8px !important; font-weight:500 !important;
+    transition: all .15s !important;
+  }
+  .stButton button[kind="primary"] {
+    background:#f0c040 !important; color:#0f0f13 !important; border:none !important;
+  }
+  .stButton button[kind="primary"]:hover { background:#e5b830 !important; }
+ 
+  /* Download button */
+  .stDownloadButton button {
+    background:#1e1e28 !important; border:1px solid #2a2a38 !important;
+    color:#e8e6e1 !important; border-radius:8px !important;
   }
 </style>
 """, unsafe_allow_html=True)
-
+ 
+# ── Constants ─────────────────────────────────────────────────────────────────
 COLORS_RGB = {
     "Yellow": (1,1,0), "Green":(0,1,0.4),
     "Cyan":(0,0.9,1),  "Pink":(1,0.4,0.7), "Orange":(1,0.6,0),
@@ -33,18 +111,37 @@ COLORS_FILL = {
     "Cyan":"rgba(0,220,255,0.35)",    "Pink":"rgba(255,100,180,0.35)",
     "Orange":"rgba(255,153,0,0.35)",
 }
-
-for k,v in [("page_num",0),("annotations",{}),("pdf_bytes",None),("zoom",1.5),("pending",None)]:
+CATEGORY_COLORS = {
+    "Food & Dining":"#f59e0b",   "Transport":"#60a5fa",
+    "Shopping":"#a78bfa",        "Entertainment":"#f472b6",
+    "Health":"#34d399",          "Utilities":"#94a3b8",
+    "Travel":"#fb923c",          "Subscriptions":"#e879f9",
+    "Income":"#4ade80",          "Unknown":"#6b7280",
+}
+ 
+# ── Session state ─────────────────────────────────────────────────────────────
+for k,v in [
+    ("step", 1),
+    ("pdf_bytes", None),
+    ("redacted_pdf_bytes", None),
+    ("annotations", {}),
+    ("pending", None),
+    ("page_num", 0),
+    ("zoom", 1.5),
+    ("transactions", None),
+    ("categorized", False),
+]:
     if k not in st.session_state:
         st.session_state[k] = v
-
+ 
+# ── Helpers ───────────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def render_page_b64(pdf_bytes, page_num, zoom):
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-    pix = doc[page_num].get_pixmap(matrix=fitz.Matrix(zoom,zoom), alpha=False)
+    pix = doc[page_num].get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
     doc.close()
     return base64.b64encode(pix.tobytes("png")).decode(), pix.width, pix.height
-
+ 
 def snap_to_words(pdf_bytes, page_num, rect):
     x0,y0,x1,y1 = rect
     hits = []
@@ -55,204 +152,387 @@ def snap_to_words(pdf_bytes, page_num, rect):
     if not hits:
         return rect
     return min(h[0] for h in hits),min(h[1] for h in hits),max(h[2] for h in hits),max(h[3] for h in hits)
-
-def build_pdf(original_bytes, annotations):
+ 
+def apply_redactions(original_bytes, annotations):
+    """Burn redactions into a new PDF bytes object."""
     doc = fitz.open(stream=original_bytes, filetype="pdf")
     for pn_str, ann_list in annotations.items():
         page = doc[int(pn_str)]
-        for ann in ann_list:
-            rect = fitz.Rect(*ann["rect"])
-            if ann["type"] == "highlight":
-                a = page.add_highlight_annot(rect)
-                a.set_colors(stroke=COLORS_RGB.get(ann["color"],(1,1,0)))
-                a.update()
-            elif ann["type"] == "redact":
-                page.add_redact_annot(rect, fill=(0,0,0))
+        for ann in [a for a in ann_list if a["type"]=="redact"]:
+            page.add_redact_annot(fitz.Rect(*ann["rect"]), fill=(0,0,0))
         page.apply_redactions()
     buf = io.BytesIO()
     doc.save(buf)
     doc.close()
     return buf.getvalue()
-
+ 
+def extract_text_all_pages(pdf_bytes):
+    """Extract text from all pages of a PDF."""
+    text = ""
+    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
+        for i, page in enumerate(pdf.pages):
+            t = page.extract_text()
+            if t:
+                text += f"\n--- Page {i+1} ---\n{t}"
+    return text.strip()
+ 
 def make_figure(b64, img_w, img_h, annotations, pending, zm):
-    # KEY coordinate system:
-    # PDF:    x=0 left, y=0 TOP,    points
-    # Plotly: x=0 left, y=0 BOTTOM, pixels (img_h = top of page)
-    # PDF -> Plotly:  plotly_y = img_h - (pdf_y * zm)
-    # Plotly -> PDF:  pdf_y    = (img_h - plotly_y) / zm
-
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=[0,img_w],y=[0,img_h],mode="markers",
                              marker=dict(opacity=0),showlegend=False,hoverinfo="none"))
     fig.add_layout_image(dict(
         source=f"data:image/png;base64,{b64}",
-        xref="x", yref="y", x=0, y=img_h,
-        sizex=img_w, sizey=img_h, sizing="stretch", layer="below",
+        xref="x",yref="y",x=0,y=img_h,
+        sizex=img_w,sizey=img_h,sizing="stretch",layer="below",
     ))
-
     shapes = []
     for ann in annotations:
         px0,py0,px1,py1 = ann["rect"]
-        # Convert PDF points -> canvas pixels, flip y
-        cx0 = px0 * zm;  cx1 = px1 * zm
-        cy_top    = img_h - py0 * zm   # py0 is top of box in PDF → higher plotly_y
-        cy_bottom = img_h - py1 * zm   # py1 is bottom of box in PDF → lower plotly_y
+        cx0,cx1 = px0*zm, px1*zm
+        cy_top, cy_bottom = img_h-py0*zm, img_h-py1*zm
         fill = "rgba(0,0,0,1)" if ann["type"]=="redact" else COLORS_FILL.get(ann["color"],"rgba(255,255,0,0.35)")
         shapes.append(dict(type="rect",xref="x",yref="y",
                            x0=cx0,x1=cx1,y0=cy_bottom,y1=cy_top,
                            fillcolor=fill,line=dict(width=0),layer="above"))
-
     if pending:
         px0,py0,px1,py1 = pending
         shapes.append(dict(type="rect",xref="x",yref="y",
-                           x0=px0*zm, x1=px1*zm,
-                           y0=img_h-py1*zm, y1=img_h-py0*zm,
-                           fillcolor="rgba(59,158,222,0.15)",
-                           line=dict(width=2,color="rgba(59,158,222,0.9)",dash="dot"),
+                           x0=px0*zm,x1=px1*zm,y0=img_h-py1*zm,y1=img_h-py0*zm,
+                           fillcolor="rgba(248,113,113,0.15)",
+                           line=dict(width=2,color="rgba(248,113,113,0.8)",dash="dot"),
                            layer="above"))
-
     fig.update_layout(
-        width=img_w, height=img_h,
-        margin=dict(l=0,r=0,t=0,b=0),
+        width=img_w,height=img_h,margin=dict(l=0,r=0,t=0,b=0),
         xaxis=dict(range=[0,img_w],showgrid=False,zeroline=False,showticklabels=False,fixedrange=False),
         yaxis=dict(range=[0,img_h],showgrid=False,zeroline=False,showticklabels=False,scaleanchor="x",fixedrange=False),
-        dragmode="select", selectdirection="any",
-        shapes=shapes, plot_bgcolor="white", paper_bgcolor="white",
+        dragmode="select",selectdirection="any",
+        shapes=shapes,plot_bgcolor="#1a1a1a",paper_bgcolor="#1a1a1a",
     )
     return fig
-
+ 
+def categorize_with_gemini(text):
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    model = genai.GenerativeModel('gemini-2.0-flash')
+    prompt = f"""Extract ALL transactions from this bank statement text.
+Return ONLY a JSON array. Each object must have exactly these keys:
+"date" (string), "name" (string), "amount" (number, negative=debit positive=credit),
+"category" (one of: Food & Dining, Transport, Shopping, Entertainment, Health,
+Utilities, Travel, Subscriptions, Income, Unknown).
+ 
+Bank statement text:
+{text}
+"""
+    response = model.generate_content(
+        prompt,
+        generation_config={"response_mime_type":"application/json"}
+    )
+    raw = response.text.strip()
+    # Strip markdown fences if present
+    if raw.startswith("```"):
+        raw = "\n".join(raw.split("\n")[1:-1])
+    return json.loads(raw)
+ 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 🖊️ PDF Annotator")
+    st.markdown("## 💳 Expense AI")
     st.markdown("---")
-    uploaded = st.file_uploader("Upload a PDF", type=["pdf"])
-    if uploaded:
-        b = uploaded.read()
-        if b != st.session_state.pdf_bytes:
-            st.session_state.pdf_bytes = b
-            st.session_state.page_num = 0
+ 
+    # Step progress
+    steps = [
+        (1, "Upload statement"),
+        (2, "Redact private info"),
+        (3, "Categorize expenses"),
+    ]
+    for num, label in steps:
+        cls = "done" if st.session_state.step > num else ("active" if st.session_state.step == num else "")
+        icon = "✓" if st.session_state.step > num else str(num)
+        st.markdown(f"""<div class="step-badge">
+            <div class="step-num {cls}">{icon}</div>
+            <div class="step-text"><b>{label}</b></div>
+        </div>""", unsafe_allow_html=True)
+ 
+    st.markdown("---")
+ 
+    if st.session_state.step == 2:
+        st.markdown("**Redaction tools**")
+        color = st.selectbox("Highlight colour", list(COLORS_RGB.keys()))
+        zoom  = st.slider("Zoom", 1.0, 3.0, st.session_state.zoom, 0.25)
+        if zoom != st.session_state.zoom:
+            st.session_state.zoom = zoom
+            render_page_b64.clear()
+        snap = st.toggle("Snap to words", value=True)
+        st.markdown("---")
+        rd = sum(1 for v in st.session_state.annotations.values() for a in v if a["type"]=="redact")
+        if rd:
+            st.markdown(f'<div class="info-box red">⬛ {rd} redaction{"s" if rd!=1 else ""} pending</div>', unsafe_allow_html=True)
+        if st.button("🗑️ Clear redactions", use_container_width=True):
             st.session_state.annotations = {}
             st.session_state.pending = None
-            render_page_b64.clear()
-
-    color = st.selectbox("Highlight colour", list(COLORS_RGB.keys()))
-    zoom  = st.slider("Zoom", 1.0, 3.0, st.session_state.zoom, 0.25)
-    if zoom != st.session_state.zoom:
-        st.session_state.zoom = zoom
-        render_page_b64.clear()
-    snap = st.toggle("Snap to word boundaries", value=True)
-    st.markdown("---")
-    hl = sum(1 for v in st.session_state.annotations.values() for a in v if a["type"]=="highlight")
-    rd = sum(1 for v in st.session_state.annotations.values() for a in v if a["type"]=="redact")
-    if hl: st.caption(f"🟨 {hl} highlight{'s' if hl!=1 else ''}")
-    if rd: st.caption(f"⬛ {rd} redaction{'s' if rd!=1 else ''}")
-    if st.button("🗑️ Clear all", use_container_width=True):
-        st.session_state.annotations = {}
-        st.session_state.pending = None
-        st.rerun()
-
-# ── Main ──────────────────────────────────────────────────────────────────────
-st.markdown("## 🖊️ PDF Annotator")
-st.caption("Upload · drag to select · Highlight or Redact · download")
-
-if not st.session_state.pdf_bytes:
-    st.markdown('<div class="info-box">👆 Upload a PDF in the sidebar to begin.</div>',unsafe_allow_html=True)
-    st.stop()
-
-pdf_bytes = st.session_state.pdf_bytes
-doc_tmp   = fitz.open(stream=pdf_bytes, filetype="pdf")
-n_pages   = len(doc_tmp); doc_tmp.close()
-
-c1,c2,c3 = st.columns([1,4,1])
-with c1:
-    if st.button("◀ Prev",use_container_width=True,disabled=st.session_state.page_num==0):
-        st.session_state.page_num -= 1; st.session_state.pending=None; st.rerun()
-with c2:
-    st.markdown(f"<p style='text-align:center;margin:6px 0;font-weight:600'>Page {st.session_state.page_num+1} of {n_pages}</p>",unsafe_allow_html=True)
-with c3:
-    if st.button("Next ▶",use_container_width=True,disabled=st.session_state.page_num==n_pages-1):
-        st.session_state.page_num += 1; st.session_state.pending=None; st.rerun()
-
-pn = st.session_state.page_num
-zm = st.session_state.zoom
-b64, img_w, img_h = render_page_b64(pdf_bytes, pn, zm)
-pk = str(pn)
-
-st.markdown('<div class="info-box">🖱️ <b>Click and drag</b> to select an area. Then click <b>Add Highlight</b> or <b>Redact</b>. The dotted blue box shows your pending selection.</div>',unsafe_allow_html=True)
-
-fig = make_figure(b64, img_w, img_h, st.session_state.annotations.get(pk,[]), st.session_state.pending, zm)
-
-event = st.plotly_chart(fig, use_container_width=False,
-                        key=f"chart_{pn}_{zm}", on_select="rerun", selection_mode=["box"])
-
-# Parse box-select → PDF coords
-try:
-    box = (event.selection.box or [{}])[0]
-    xs = box.get("x",[])
-    ys = box.get("y",[])
-    if len(xs)>=2 and len(ys)>=2:
-        # Plotly x is already canvas pixels, divide by zoom for PDF points
-        pdf_x0 = min(xs) / zm
-        pdf_x1 = max(xs) / zm
-        # Plotly y=0 is BOTTOM; PDF y=0 is TOP of page
-        # max(ys) is the top of selection in Plotly → smallest PDF y (top of box)
-        pdf_y0 = (img_h - max(ys)) / zm
-        pdf_y1 = (img_h - min(ys)) / zm
-        new = (pdf_x0, pdf_y0, pdf_x1, pdf_y1)
-        if new != st.session_state.pending:
-            st.session_state.pending = new
             st.rerun()
-except Exception:
-    pass
-
-if st.session_state.pending:
-    px0,py0,px1,py1 = st.session_state.pending
-    st.markdown(f'<div class="info-box blue">📌 Selection ready ({px0:.0f},{py0:.0f})→({px1:.0f},{py1:.0f}) pt — apply below</div>',unsafe_allow_html=True)
-
-b1,b2,b3 = st.columns(3)
-
-def commit(ann_type):
-    if not st.session_state.pending:
-        st.warning("Drag to select an area first.")
-        return
-    x0,y0,x1,y1 = st.session_state.pending
-    if snap:
-        x0,y0,x1,y1 = snap_to_words(pdf_bytes, pn, (x0,y0,x1,y1))
-    st.session_state.annotations.setdefault(pk,[]).append(
-        {"rect":[x0,y0,x1,y1],"color":color,"type":ann_type})
-    st.session_state.pending = None
-    st.rerun()
-
-with b1:
-    if st.button("🟨 Add Highlight",use_container_width=True,type="primary"):
-        commit("highlight")
-with b2:
-    if st.button("⬛ Redact",use_container_width=True):
-        commit("redact")
-with b3:
-    if st.button("↩️ Undo last",use_container_width=True):
-        if st.session_state.annotations.get(pk):
-            st.session_state.annotations[pk].pop()
-            if not st.session_state.annotations[pk]:
-                del st.session_state.annotations[pk]
-        st.session_state.pending = None
-        st.rerun()
-
-st.markdown("---")
-total_hl = sum(1 for v in st.session_state.annotations.values() for a in v if a["type"]=="highlight")
-total_rd = sum(1 for v in st.session_state.annotations.values() for a in v if a["type"]=="redact")
-total    = total_hl + total_rd
-
-dc,sc = st.columns([3,1])
-with sc:
-    st.markdown(f"<div class='stat-box'><b style='font-size:1.3rem'>{total_hl}</b> <span style='font-size:.8rem;color:#888'>highlight{'s' if total_hl!=1 else ''}</span><br><b style='font-size:1.3rem'>{total_rd}</b> <span style='font-size:.8rem;color:#888'>redaction{'s' if total_rd!=1 else ''}</span></div>",unsafe_allow_html=True)
-with dc:
-    if total > 0:
-        st.download_button("⬇️ Download annotated PDF",
-                           data=build_pdf(pdf_bytes,st.session_state.annotations),
-                           file_name="annotated.pdf",mime="application/pdf",
-                           use_container_width=True)
-        if total_rd:
-            st.caption("⚠️ Redactions are permanently burned into the downloaded PDF.")
     else:
-        st.info("Add highlights or redactions above, then download here.")
+        color = "Yellow"
+        snap = True
+        zoom = st.session_state.zoom
+ 
+# ── Header ────────────────────────────────────────────────────────────────────
+st.markdown("# 💳 Expense Categorizer")
+st.markdown("*AI-powered bank statement analysis with privacy-first redaction*")
+st.markdown("---")
+ 
+# ═══════════════════════════════════════════════════════════
+# STEP 1 — Upload
+# ═══════════════════════════════════════════════════════════
+if st.session_state.step == 1:
+    st.markdown("### Step 1 — Upload your bank statement")
+    st.markdown('<div class="info-box">Upload a PDF bank statement. In the next step you can redact any sensitive information (account numbers, BSB, personal details) before the AI reads it.</div>', unsafe_allow_html=True)
+ 
+    col1, col2 = st.columns([2,1])
+    with col1:
+        uploaded = st.file_uploader("Upload PDF", type=["pdf"], label_visibility="collapsed")
+        if uploaded:
+            b = uploaded.read()
+            st.session_state.pdf_bytes = b
+            st.session_state.annotations = {}
+            st.session_state.pending = None
+            st.session_state.transactions = None
+            st.session_state.categorized = False
+            render_page_b64.clear()
+ 
+            doc = fitz.open(stream=b, filetype="pdf")
+            n = len(doc); doc.close()
+            st.markdown(f'<div class="info-box green">✅ Loaded <b>{uploaded.name}</b> — {n} page{"s" if n!=1 else ""}</div>', unsafe_allow_html=True)
+ 
+            if st.button("Continue to Redaction →", type="primary", use_container_width=True):
+                st.session_state.step = 2
+                st.rerun()
+ 
+    with col2:
+        st.markdown("""<div class="card">
+            <h3>🔒 Privacy first</h3>
+            <p>You control what the AI sees. Redact account numbers, BSBs, names, and addresses before analysis.</p>
+        </div>
+        <div class="card">
+            <h3>🤖 Gemini AI</h3>
+            <p>Transactions are extracted and categorized automatically across all pages.</p>
+        </div>
+        <div class="card">
+            <h3>📊 Instant insights</h3>
+            <p>See spending by category with totals and a breakdown table.</p>
+        </div>""", unsafe_allow_html=True)
+ 
+# ═══════════════════════════════════════════════════════════
+# STEP 2 — Redact
+# ═══════════════════════════════════════════════════════════
+elif st.session_state.step == 2:
+    st.markdown("### Step 2 — Redact sensitive information")
+    st.markdown('<div class="info-box red">⬛ Drag to select any sensitive text (account numbers, BSB, full name, address), then click <b>Redact Selection</b>. Redacted areas will be blacked out before the AI reads the document. You can also skip this step.</div>', unsafe_allow_html=True)
+ 
+    pdf_bytes = st.session_state.pdf_bytes
+    doc_tmp = fitz.open(stream=pdf_bytes, filetype="pdf")
+    n_pages = len(doc_tmp); doc_tmp.close()
+ 
+    # Page nav
+    c1,c2,c3 = st.columns([1,5,1])
+    with c1:
+        if st.button("◀",use_container_width=True,disabled=st.session_state.page_num==0):
+            st.session_state.page_num -= 1; st.session_state.pending=None; st.rerun()
+    with c2:
+        st.markdown(f"<p style='text-align:center;margin:4px 0;color:#888;font-size:.9rem'>Page {st.session_state.page_num+1} of {n_pages}</p>",unsafe_allow_html=True)
+    with c3:
+        if st.button("▶",use_container_width=True,disabled=st.session_state.page_num==n_pages-1):
+            st.session_state.page_num += 1; st.session_state.pending=None; st.rerun()
+ 
+    pn = st.session_state.page_num
+    zm = st.session_state.zoom
+    b64, img_w, img_h = render_page_b64(pdf_bytes, pn, zm)
+    pk = str(pn)
+ 
+    fig = make_figure(b64, img_w, img_h,
+                      st.session_state.annotations.get(pk, []),
+                      st.session_state.pending, zm)
+ 
+    event = st.plotly_chart(fig, use_container_width=False,
+                            key=f"chart_{pn}_{zm}",
+                            on_select="rerun", selection_mode=["box"])
+ 
+    # Parse selection
+    try:
+        box = (event.selection.box or [{}])[0]
+        xs, ys = box.get("x",[]), box.get("y",[])
+        if len(xs)>=2 and len(ys)>=2:
+            new = (min(xs)/zm, (img_h-max(ys))/zm, max(xs)/zm, (img_h-min(ys))/zm)
+            if new != st.session_state.pending:
+                st.session_state.pending = new
+                st.rerun()
+    except Exception:
+        pass
+ 
+    if st.session_state.pending:
+        st.markdown('<div class="info-box red">📌 Selection ready — click Redact below to black it out</div>', unsafe_allow_html=True)
+ 
+    # Action row
+    a1,a2,a3,a4 = st.columns(4)
+    with a1:
+        if st.button("⬛ Redact Selection", use_container_width=True, type="primary"):
+            if st.session_state.pending:
+                x0,y0,x1,y1 = st.session_state.pending
+                if snap:
+                    x0,y0,x1,y1 = snap_to_words(pdf_bytes, pn, (x0,y0,x1,y1))
+                st.session_state.annotations.setdefault(pk,[]).append(
+                    {"rect":[x0,y0,x1,y1],"color":"black","type":"redact"})
+                st.session_state.pending = None
+                st.rerun()
+            else:
+                st.warning("Drag to select an area first.")
+    with a2:
+        if st.button("↩️ Undo last", use_container_width=True):
+            if st.session_state.annotations.get(pk):
+                st.session_state.annotations[pk].pop()
+                if not st.session_state.annotations[pk]:
+                    del st.session_state.annotations[pk]
+            st.session_state.pending = None
+            st.rerun()
+    with a3:
+        rd_total = sum(len(v) for v in st.session_state.annotations.values())
+        label = f"Analyse ({rd_total} redaction{'s' if rd_total!=1 else ''}) →" if rd_total else "Analyse without redacting →"
+        if st.button(label, use_container_width=True):
+            with st.spinner("Applying redactions…"):
+                if st.session_state.annotations:
+                    st.session_state.redacted_pdf_bytes = apply_redactions(
+                        pdf_bytes, st.session_state.annotations)
+                else:
+                    st.session_state.redacted_pdf_bytes = pdf_bytes
+            st.session_state.step = 3
+            st.rerun()
+    with a4:
+        if st.button("← Back", use_container_width=True):
+            st.session_state.step = 1
+            st.session_state.page_num = 0
+            st.rerun()
+ 
+# ═══════════════════════════════════════════════════════════
+# STEP 3 — Categorize
+# ═══════════════════════════════════════════════════════════
+elif st.session_state.step == 3:
+    st.markdown("### Step 3 — AI Expense Categorization")
+ 
+    rd_count = sum(len(v) for v in st.session_state.annotations.values())
+    if rd_count:
+        st.markdown(f'<div class="info-box green">🔒 {rd_count} redaction{"s" if rd_count!=1 else ""} applied — the AI will not see that content.</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="info-box blue">ℹ️ No redactions applied. The full document will be analysed.</div>', unsafe_allow_html=True)
+ 
+    col_btn1, col_btn2, _ = st.columns([1,1,3])
+    with col_btn1:
+        run = st.button("🤖 Categorize Transactions", type="primary", use_container_width=True)
+    with col_btn2:
+        if st.button("← Back to Redaction", use_container_width=True):
+            st.session_state.step = 2
+            st.rerun()
+ 
+    if run:
+        with st.spinner("Extracting text and sending to Gemini…"):
+            try:
+                text = extract_text_all_pages(st.session_state.redacted_pdf_bytes)
+                if not text:
+                    st.error("No text could be extracted from the PDF. It may be a scanned image.")
+                    st.stop()
+                data = categorize_with_gemini(text)
+                st.session_state.transactions = data
+                st.session_state.categorized = True
+            except Exception as e:
+                st.error(f"Gemini error: {e}")
+                st.stop()
+ 
+    if st.session_state.categorized and st.session_state.transactions:
+        data = st.session_state.transactions
+        df = pd.DataFrame(data)
+ 
+        # Ensure amount is numeric
+        df["amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0)
+ 
+        # ── Metrics ──────────────────────────────────────────────────────────
+        total_spend  = df[df["amount"] < 0]["amount"].sum()
+        total_income = df[df["amount"] > 0]["amount"].sum()
+        n_tx         = len(df)
+        top_cat      = df[df["amount"]<0].groupby("category")["amount"].sum().idxmin() if len(df[df["amount"]<0]) else "—"
+ 
+        st.markdown(f"""<div class="metric-strip">
+            <div class="metric"><div class="val">{n_tx}</div><div class="lbl">Transactions</div></div>
+            <div class="metric"><div class="val" style="color:#f87171">${abs(total_spend):,.2f}</div><div class="lbl">Total Spent</div></div>
+            <div class="metric"><div class="val" style="color:#34d399">${total_income:,.2f}</div><div class="lbl">Total Income</div></div>
+            <div class="metric"><div class="val" style="font-size:1rem;padding-top:4px">{top_cat}</div><div class="lbl">Biggest Category</div></div>
+        </div>""", unsafe_allow_html=True)
+ 
+        # ── Category breakdown ────────────────────────────────────────────────
+        st.markdown("#### Spending by Category")
+        cat_totals = (df[df["amount"]<0]
+                      .groupby("category")["amount"]
+                      .sum()
+                      .abs()
+                      .sort_values(ascending=False))
+ 
+        if not cat_totals.empty:
+            fig_bar = go.Figure(go.Bar(
+                x=cat_totals.values,
+                y=cat_totals.index,
+                orientation="h",
+                marker_color=[CATEGORY_COLORS.get(c,"#6b7280") for c in cat_totals.index],
+                text=[f"${v:,.2f}" for v in cat_totals.values],
+                textposition="outside",
+            ))
+            fig_bar.update_layout(
+                height=max(250, len(cat_totals)*42),
+                margin=dict(l=0,r=60,t=10,b=0),
+                paper_bgcolor="#1e1e28", plot_bgcolor="#1e1e28",
+                font=dict(color="#c9c7c0", size=12),
+                xaxis=dict(showgrid=True, gridcolor="#2a2a38", zeroline=False,
+                           showticklabels=False),
+                yaxis=dict(showgrid=False, tickfont=dict(size=12)),
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+ 
+        # ── Transaction table ─────────────────────────────────────────────────
+        st.markdown("#### All Transactions")
+ 
+        # Allow manual category edits
+        categories = list(CATEGORY_COLORS.keys())
+        df_display = df.copy()
+        df_display["amount"] = df_display["amount"].map(lambda x: f"${x:+,.2f}")
+ 
+        edited = st.data_editor(
+            df_display,
+            column_config={
+                "category": st.column_config.SelectboxColumn(
+                    "Category", options=categories, required=True
+                ),
+                "amount": st.column_config.TextColumn("Amount"),
+                "date":   st.column_config.TextColumn("Date"),
+                "name":   st.column_config.TextColumn("Merchant"),
+            },
+            use_container_width=True,
+            hide_index=True,
+            key="tx_editor",
+        )
+ 
+        # ── Downloads ─────────────────────────────────────────────────────────
+        st.markdown("---")
+        d1, d2, d3 = st.columns(3)
+        with d1:
+            csv = pd.DataFrame(edited).to_csv(index=False)
+            st.download_button("⬇️ Download CSV", data=csv,
+                               file_name="expenses.csv", mime="text/csv",
+                               use_container_width=True)
+        with d2:
+            st.download_button("⬇️ Download redacted PDF",
+                               data=st.session_state.redacted_pdf_bytes,
+                               file_name="redacted_statement.pdf",
+                               mime="application/pdf",
+                               use_container_width=True)
+        with d3:
+            if st.button("🔄 Start over", use_container_width=True):
+                for k in ["step","pdf_bytes","redacted_pdf_bytes","annotations",
+                          "pending","page_num","transactions","categorized"]:
+                    del st.session_state[k]
+                render_page_b64.clear()
+                st.rerun()
