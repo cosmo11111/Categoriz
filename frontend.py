@@ -212,7 +212,7 @@ def make_figure(b64, img_w, img_h, annotations, pending, zm):
  
 def categorize_with_gemini(text):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    model = genai.GenerativeModel('gemini-3.0-flash')
     prompt = f"""Extract ALL transactions from this bank statement text.
 Return ONLY a JSON array. Each object must have exactly these keys:
 "date" (string), "name" (string), "amount" (number, negative=debit positive=credit),
