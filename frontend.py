@@ -587,15 +587,26 @@ elif st.session_state.step == 3:
         df["amount"] = df["amount"].map(parse_amount)
 
         # ── Build df_edited from session_state so charts update atomically ────
-        # st.session_state["tx_editor"] holds the latest table state from the
-        # previous rerun — this means charts always reflect the last edit even
-        # though the table widget renders below them.
+        # st.session_state["tx_editor"] stores edits as {"edited_rows": {...},
+        # "added_rows": [...], "deleted_rows": [...]} — not a full dataframe.
+        # We apply those edits onto the base df manually.
         raw = st.session_state.get("tx_editor")
-        if raw is not None:
-            df_edited = pd.DataFrame(raw)
-            df_edited["amount"] = df_edited["amount"].map(parse_amount)
-        else:
-            df_edited = df.copy()
+        df_edited = df.copy()
+        if isinstance(raw, dict):
+            # Apply edited rows
+            for row_idx, changes in (raw.get("edited_rows") or {}).items():
+                for col, val in changes.items():
+                    df_edited.at[int(row_idx), col] = val
+            # Apply added rows
+            for new_row in (raw.get("added_rows") or []):
+                df_edited = pd.concat(
+                    [df_edited, pd.DataFrame([new_row])], ignore_index=True
+                )
+            # Apply deleted rows
+            deleted = raw.get("deleted_rows") or []
+            if deleted:
+                df_edited = df_edited.drop(index=deleted).reset_index(drop=True)
+        df_edited["amount"] = df_edited["amount"].map(parse_amount)
 
         # ── Metrics ──────────────────────────────────────────────────────────
         total_spend  = df_edited[df_edited["amount"] < 0]["amount"].sum()
