@@ -792,9 +792,17 @@ elif st.session_state.step == 3:
         cat_options = cat_names + [ADD_NEW_SENTINEL]
 
         # ── Row state ─────────────────────────────────────────────────────────
-        if "tx_rows" not in st.session_state or st.session_state.get("tx_rows_source") != id(df):
+        # Use a hash of the raw transactions list as the stable source key.
+        # id(df) changes every rerun because pandas creates a new object each
+        # time — that was causing tx_rows to reset on every interaction.
+        import hashlib as _hl
+        _src_key = _hl.md5(
+            json.dumps(st.session_state.transactions, default=str, sort_keys=True).encode()
+        ).hexdigest()
+
+        if "tx_rows" not in st.session_state or st.session_state.get("tx_rows_source") != _src_key:
             st.session_state.tx_rows = df[["date","name","amount","category"]].copy().to_dict("records")
-            st.session_state.tx_rows_source = id(df)
+            st.session_state.tx_rows_source = _src_key
 
         # ── Handle pending actions set by callbacks ────────────────────────────
         # Callbacks fire before the page re-renders, so session_state is already
@@ -1055,7 +1063,13 @@ elif st.session_state.step == 3:
         with d3:
             if st.button("🔄 Start over", use_container_width=True):
                 for k in ["step","pdf_bytes","redacted_pdf_bytes","annotations",
-                          "pending","page_num","transactions","categorized"]:
-                    del st.session_state[k]
+                          "pending","page_num","transactions","categorized",
+                          "tx_rows","tx_rows_source",
+                          "_tx_pending_delete","_tx_pending_add"]:
+                    st.session_state.pop(k, None)
+                # Clear any row widget keys
+                for k in list(st.session_state.keys()):
+                    if k.startswith("td_"):
+                        del st.session_state[k]
                 render_page_b64.clear()
                 st.rerun()
