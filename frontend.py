@@ -815,6 +815,16 @@ elif st.session_state.step == 3:
             columns=["date","name","amount","category"])
         df_edited["amount"] = df_edited["amount"].map(parse_amount)
 
+        # ── DEBUG ─────────────────────────────────────────────────────────────
+        with st.expander("🐛 DEBUG — chart data", expanded=True):
+            st.write(f"tx_rows count: {len(st.session_state.tx_rows)}")
+            st.write(f"df_edited rows: {len(df_edited)}")
+            st.write(f"df_edited amounts: {df_edited['amount'].tolist()}")
+            neg = df_edited[df_edited['amount'] < 0]
+            st.write(f"negative rows (shown in charts): {len(neg)}")
+            st.write(f"_tx_pending_add in state: {st.session_state.get('_tx_pending_add')}")
+            st.write(f"_tx_pending_delete in state: {st.session_state.get('_tx_pending_delete')}")
+
         # ── Fill metrics placeholder ──────────────────────────────────────────
         total_spend  = df_edited[df_edited["amount"] < 0]["amount"].sum()
         total_income = df_edited[df_edited["amount"] > 0]["amount"].sum()
