@@ -753,6 +753,20 @@ elif st.session_state.step == 3:
                 prev_cat = str(row.get("category","Unknown"))
                 if prev_cat not in cat_options:
                     prev_cat = "Unknown"
+
+                # Auto-match vendor rules when merchant name is typed/changed.
+                # Read the current name from widget state (may differ from row dict
+                # if the user just typed something without clicking Update Charts).
+                current_name = st.session_state.get(f"td_{i}_name", row.get("name","")).strip()
+                if current_name and current_name.lower() != "unknown":
+                    matched = apply_vendor_rules(v_rules, current_name)
+                    if matched and matched in cat_names and matched != prev_cat:
+                        # Only auto-apply if the row still has "Unknown" or default —
+                        # don't override a category the user has already set manually.
+                        if prev_cat == "Unknown":
+                            prev_cat = matched
+                            rows[i]["category"] = matched
+
                 new_cat = st.selectbox("Category", cat_options,
                                        index=cat_options.index(prev_cat),
                                        label_visibility="collapsed",
