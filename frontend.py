@@ -242,7 +242,7 @@ def make_figure(b64, img_w, img_h, annotations, pending, zm):
 
 def categorize_with_gemini(text, all_categories: dict, vendor_rules: list):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel("gemini-3-flash-preview")
+    model = genai.GenerativeModel("gemini-2.0-flash")
     cat_list = ", ".join(all_categories.keys())
     prompt = f"""Extract ALL transactions from this bank statement text.
 Return ONLY a JSON array. Each object must have exactly these keys:
@@ -750,7 +750,11 @@ elif st.session_state.step == 3:
         uid      = user.id if hasattr(user,"id") else user.get("id") if user else None
         all_cats = load_categories(uid) if uid else DEFAULT_CATEGORY_COLORS
         v_rules  = load_vendor_rules(uid) if uid else []
+
+        # Build category list — append a sentinel so users know they can type new ones
         cat_names = list(all_cats.keys())
+        ADD_NEW_SENTINEL = "＋ Add new category…"
+        cat_options = cat_names + [ADD_NEW_SENTINEL]
 
         df_display = df.copy()
         df_display["amount"] = df_display["amount"].map(lambda x: f"${x:+,.2f}")
@@ -759,7 +763,7 @@ elif st.session_state.step == 3:
             df_display,
             column_config={
                 "category": st.column_config.SelectboxColumn(
-                    "Category", options=cat_names, required=True
+                    "Category", options=cat_options, required=True
                 ),
                 "amount": st.column_config.TextColumn("Amount"),
                 "date":   st.column_config.TextColumn("Date"),
@@ -771,32 +775,75 @@ elif st.session_state.step == 3:
             key="tx_editor",
         )
 
-        # ── Manage categories ─────────────────────────────────────────────────
-        with st.expander("⚙️ Manage categories"):
-            st.markdown("**Add a custom category**")
-            mc1, mc2, mc3 = st.columns([3, 2, 1])
-            with mc1:
-                new_cat_name = st.text_input("Name", placeholder="e.g. Pet Care",
-                                             label_visibility="collapsed", key="new_cat_name")
-            with mc2:
-                new_cat_color = st.color_picker("Colour", value="#a78bfa",
-                                                label_visibility="collapsed", key="new_cat_color")
-            with mc3:
-                if st.button("Add", use_container_width=True, key="add_cat"):
-                    name = new_cat_name.strip()
+        # ── Process table edits: new categories + auto vendor rules ───────────
+        raw_edits = st.session_state.get("tx_editor", {})
+        edited_rows = raw_edits.get("edited_rows", {}) if isinstance(raw_edits, dict) else {}
+
+        new_cats_needed   = {}   # {row_idx: typed_name} — sentinel rows needing a real category
+        vendor_rule_queue = []   # [(vendor_name, category)] — auto-rules to upsert
+
+        for row_idx_str, changes in edited_rows.items():
+            row_idx  = int(row_idx_str)
+            new_cat  = changes.get("category", "")
+
+            # Detect sentinel — user picked "＋ Add new category…"
+            if new_cat == ADD_NEW_SENTINEL:
+                new_cats_needed[row_idx] = new_cat
+                continue
+
+            # Skip unknown/blank vendors — never create rules for them
+            vendor = df.iloc[row_idx]["name"] if row_idx < len(df) else ""
+            vendor = str(vendor).strip()
+            is_unknown = not vendor or vendor.lower() == "unknown"
+
+            # Queue a vendor rule if category changed and vendor is identifiable
+            if new_cat and new_cat in cat_names and not is_unknown and uid:
+                vendor_rule_queue.append((vendor, new_cat))
+
+        # Auto-save vendor rules silently
+        for vendor, category in vendor_rule_queue:
+            save_vendor_rule(uid, vendor, category, "contains")
+
+        # If any row has the sentinel, show the "add new category" inline UI
+        if new_cats_needed:
+            st.markdown('<div class="info-box blue">You selected <b>＋ Add new category…</b> — '
+                        'enter the name and colour below, then save. '
+                        'The table will update automatically.</div>', unsafe_allow_html=True)
+            nc1, nc2, nc3 = st.columns([3, 2, 1])
+            with nc1:
+                inline_cat_name = st.text_input(
+                    "New category name", placeholder="e.g. Pet Care", key="inline_cat_name"
+                )
+            with nc2:
+                inline_cat_color = st.color_picker(
+                    "Colour", value="#a78bfa", key="inline_cat_color"
+                )
+            with nc3:
+                st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+                if st.button("Save category", type="primary", use_container_width=True):
+                    name = inline_cat_name.strip()
                     if not name:
-                        st.warning("Enter a name.")
+                        st.warning("Enter a category name.")
+                    elif name == ADD_NEW_SENTINEL:
+                        st.warning("That's not a valid category name.")
                     elif not uid:
                         st.warning("Sign in to save categories.")
                     else:
-                        ok, err = save_category(uid, name, new_cat_color)
+                        ok, err = save_category(uid, name, inline_cat_color)
                         if ok:
-                            st.success(f"'{name}' saved!")
+                            # Also create a vendor rule for any affected rows
+                            for row_idx in new_cats_needed:
+                                vendor = df.iloc[row_idx]["name"] if row_idx < len(df) else ""
+                                vendor = str(vendor).strip()
+                                if vendor and vendor.lower() != "unknown":
+                                    save_vendor_rule(uid, vendor, name, "contains")
+                            st.success(f"✅ '{name}' added! Re-select it in the table.")
                             st.rerun()
                         else:
                             st.error(f"Could not save: {err}")
 
-            # List custom (non-default) categories with delete option
+        # ── Manage categories expander ────────────────────────────────────────
+        with st.expander("⚙️ Manage categories"):
             custom = {k: v for k, v in all_cats.items() if k not in DEFAULT_CATEGORY_COLORS}
             if custom:
                 st.markdown("**Your custom categories**")
@@ -813,10 +860,23 @@ elif st.session_state.step == 3:
                         if st.button("✕", key=f"del_cat_{cname}"):
                             delete_category(uid, cname)
                             st.rerun()
+            else:
+                st.caption("No custom categories yet — select '＋ Add new category…' in the table above to create one.")
 
-        # ── Manage vendor rules ───────────────────────────────────────────────
+        # ── Vendor rules expander ─────────────────────────────────────────────
         with st.expander("🏪 Vendor auto-categorization rules"):
-            st.caption("When the app sees a vendor name matching your rule, it applies your category automatically.")
+            # Show auto-created rules notice if any were just created
+            if vendor_rule_queue:
+                st.markdown(
+                    f'<div class="info-box green">✅ {len(vendor_rule_queue)} vendor rule'
+                    f'{"s" if len(vendor_rule_queue)!=1 else ""} saved automatically.</div>',
+                    unsafe_allow_html=True,
+                )
+
+            st.caption("Rules are created automatically when you change a category in the table. "
+                       "You can also add or delete them manually here.")
+
+            # Manual add
             vr1, vr2, vr3, vr4 = st.columns([3, 2, 2, 1])
             with vr1:
                 new_vr_vendor = st.text_input("Vendor", placeholder="e.g. AMPOL",
@@ -842,9 +902,11 @@ elif st.session_state.step == 3:
                         else:
                             st.error(f"Could not save: {err}")
 
-            if v_rules:
+            # List existing rules
+            v_rules_fresh = load_vendor_rules(uid) if uid else []
+            if v_rules_fresh:
                 st.markdown("**Active rules**")
-                for rule in v_rules:
+                for rule in v_rules_fresh:
                     rc1, rc2 = st.columns([5, 1])
                     with rc1:
                         st.markdown(
@@ -855,6 +917,8 @@ elif st.session_state.step == 3:
                         if st.button("✕", key=f"del_vr_{rule['vendor_name']}"):
                             delete_vendor_rule(uid, rule["vendor_name"])
                             st.rerun()
+            else:
+                st.caption("No rules yet.")
 
         # ── Save report ───────────────────────────────────────────────────────
         with st.expander("💾 Save this report to your account"):
