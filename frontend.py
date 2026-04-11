@@ -780,29 +780,42 @@ elif st.session_state.step == 3:
         for vendor, category in vendor_rule_queue:
             save_vendor_rule(uid, vendor, category, "contains")
 
-        # ── Sync widget state → tx_rows before building df_edited ────────────
-        # Read every td_* widget back into rows so df_edited reflects
-        # whatever the user has typed, including new/edited rows.
-        for i in range(len(rows)):
-            rows[i]["date"]   = st.session_state.get(f"td_{i}_date",   rows[i].get("date",""))
-            rows[i]["name"]   = st.session_state.get(f"td_{i}_name",   rows[i].get("name",""))
-            rows[i]["amount"] = st.session_state.get(f"td_{i}_amt",    rows[i].get("amount",""))
-            rows[i]["category"] = st.session_state.get(f"td_{i}_cat",  rows[i].get("category","Unknown"))
-        st.session_state.tx_rows = rows
-
-        # ── Add transaction button ─────────────────────────────────────────────
+        # ── Bottom action row: Add + Update Charts ───────────────────────────
         def _add_row_cb():
             st.session_state._tx_pending_add = True
 
-        st.button("＋  Add transaction", use_container_width=True,
-                  on_click=_add_row_cb, key="add_tx_btn")
+        def _update_charts_cb():
+            # Sync widget state → tx_rows and flag charts to refresh
+            _rows = st.session_state.tx_rows
+            for _i in range(len(_rows)):
+                _rows[_i]["date"]     = st.session_state.get(f"td_{_i}_date",     _rows[_i].get("date",""))
+                _rows[_i]["name"]     = st.session_state.get(f"td_{_i}_name",     _rows[_i].get("name",""))
+                _rows[_i]["amount"]   = st.session_state.get(f"td_{_i}_amt",      _rows[_i].get("amount",""))
+                _rows[_i]["category"] = st.session_state.get(f"td_{_i}_cat",      _rows[_i].get("category","Unknown"))
+            st.session_state.tx_rows = _rows
+            st.session_state._charts_dirty = False
 
-        # ── Build df_edited from synced rows ─────────────────────────────────
-        df_edited = pd.DataFrame(rows) if rows else pd.DataFrame(
+        act1, act2 = st.columns([1, 1])
+        with act1:
+            st.button("＋  Add transaction", use_container_width=True,
+                      on_click=_add_row_cb, key="add_tx_btn")
+        with act2:
+            st.button("📊  Update charts", use_container_width=True,
+                      on_click=_update_charts_cb, key="update_charts_btn",
+                      type="primary")
+
+        # ── Always sync rows back (captures add/delete/category changes) ──────
+        # Text field edits are only synced when Update Charts is clicked.
+        for i in range(len(rows)):
+            rows[i]["category"] = st.session_state.get(f"td_{i}_cat", rows[i].get("category","Unknown"))
+        st.session_state.tx_rows = rows
+
+        # ── Build df_edited from current tx_rows ─────────────────────────────
+        df_edited = pd.DataFrame(st.session_state.tx_rows) if st.session_state.tx_rows else pd.DataFrame(
             columns=["date","name","amount","category"])
         df_edited["amount"] = df_edited["amount"].map(parse_amount)
 
-        # ── Fill metrics placeholder ───────────────────────────────────────────
+        # ── Fill metrics placeholder ──────────────────────────────────────────
         total_spend  = df_edited[df_edited["amount"] < 0]["amount"].sum()
         total_income = df_edited[df_edited["amount"] > 0]["amount"].sum()
         n_tx         = len(df_edited)
