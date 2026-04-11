@@ -747,7 +747,7 @@ elif st.session_state.step == 3:
             with c_amt:
                 st.text_input("Amount", value=str(row.get("amount","")),
                               label_visibility="collapsed",
-                              key=f"td_{i}_amt", placeholder="0.00")
+                              key=f"td_{i}_amt", placeholder="-0.00 (debit) or +0.00 (income)")
 
             with c_cat:
                 prev_cat = str(row.get("category","Unknown"))
@@ -815,16 +815,6 @@ elif st.session_state.step == 3:
             columns=["date","name","amount","category"])
         df_edited["amount"] = df_edited["amount"].map(parse_amount)
 
-        # ── DEBUG ─────────────────────────────────────────────────────────────
-        with st.expander("🐛 DEBUG — chart data", expanded=True):
-            st.write(f"tx_rows count: {len(st.session_state.tx_rows)}")
-            st.write(f"df_edited rows: {len(df_edited)}")
-            st.write(f"df_edited amounts: {df_edited['amount'].tolist()}")
-            neg = df_edited[df_edited['amount'] < 0]
-            st.write(f"negative rows (shown in charts): {len(neg)}")
-            st.write(f"_tx_pending_add in state: {st.session_state.get('_tx_pending_add')}")
-            st.write(f"_tx_pending_delete in state: {st.session_state.get('_tx_pending_delete')}")
-
         # ── Fill metrics placeholder ──────────────────────────────────────────
         total_spend  = df_edited[df_edited["amount"] < 0]["amount"].sum()
         total_income = df_edited[df_edited["amount"] > 0]["amount"].sum()
@@ -841,13 +831,20 @@ elif st.session_state.step == 3:
         </div>""", unsafe_allow_html=True)
 
         # ── Fill charts placeholder ───────────────────────────────────────────
+        # Charts only show debits (negative amounts). Income/positive rows
+        # are counted in the metrics but excluded from the pie + vendor tables.
         spend_df   = df_edited[df_edited["amount"] < 0].copy()
         spend_df["name"] = spend_df["name"].astype(str)
         spend_df["amount_abs"] = spend_df["amount"].abs()
         cat_totals = spend_df.groupby("category")["amount_abs"].sum().sort_values(ascending=False)
 
+        n_income = len(df_edited[df_edited["amount"] >= 0])
         if not cat_totals.empty:
             with _charts_placeholder.container():
+                if n_income > 0:
+                    st.caption(f"ℹ️ Charts show spending only. "
+                               f"{n_income} income/zero row{'s' if n_income!=1 else ''} "
+                               f"excluded — visible in metrics above.")
                 pie_col, vendor_col = st.columns([1, 1])
 
                 with pie_col:
