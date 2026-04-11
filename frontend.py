@@ -241,7 +241,7 @@ def make_figure(b64, img_w, img_h, annotations, pending, zm):
 
 def categorize_with_gemini(text):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-3-flash-preview')
+    model = genai.GenerativeModel('gemini-2.0-flash')
     prompt = f"""Extract ALL transactions from this bank statement text.
 Return ONLY a JSON array. Each object must have exactly these keys:
 "date" (string), "name" (string), "amount" (number, negative=debit positive=credit),
@@ -709,6 +709,27 @@ elif st.session_state.step == 3:
                             "Total Spent": st.column_config.TextColumn("Total Spent"),
                         },
                     )
+
+        # ── Transaction table ────────────────────────────────────────────────
+        st.markdown("#### All Transactions")
+        categories = list(CATEGORY_COLORS.keys())
+        df_display = df.copy()
+        df_display["amount"] = df_display["amount"].map(lambda x: f"${x:+,.2f}")
+
+        edited = st.data_editor(
+            df_display,
+            column_config={
+                "category": st.column_config.SelectboxColumn(
+                    "Category", options=categories, required=True
+                ),
+                "amount": st.column_config.TextColumn("Amount"),
+                "date":   st.column_config.TextColumn("Date"),
+                "name":   st.column_config.TextColumn("Merchant"),
+            },
+            use_container_width=True,
+            hide_index=True,
+            key="tx_editor",
+        )
 
         # ── Downloads ─────────────────────────────────────────────────────────
         st.markdown("---")
