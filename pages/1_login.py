@@ -39,7 +39,7 @@ with col:
                     {"email": email.strip(), "password": password}
                 )
                 set_session({"user": res.user, "access_token": res.session.access_token})
-                st.switch_page("app.py")
+                st.switch_page("frontend.py.py")
             except Exception as e:
                 err = str(e)
                 if "Invalid login" in err or "invalid" in err.lower():
