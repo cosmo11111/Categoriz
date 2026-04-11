@@ -5,7 +5,7 @@ st.set_page_config(page_title="Reset Password — Expense AI", page_icon="💳",
 st.markdown(AUTH_CSS, unsafe_allow_html=True)
 
 if is_logged_in():
-    st.switch_page("app.py")
+    st.switch_page("frontend.py")
 
 # ── Two modes: request reset OR set new password (arrived via email link) ─────
 # Supabase sends a link like: https://yourapp.com/reset_password#access_token=...
