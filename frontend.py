@@ -796,50 +796,59 @@ elif st.session_state.step == 3:
             st.session_state.tx_rows = df[["date","name","amount","category"]].copy().to_dict("records")
             st.session_state.tx_rows_source = id(df)
 
-        rows        = st.session_state.tx_rows
-        delete_idx  = None
+        # ── Handle pending actions set by callbacks ────────────────────────────
+        # Callbacks fire before the page re-renders, so session_state is already
+        # updated by the time we read it here.
+        if st.session_state.get("_tx_pending_delete") is not None:
+            idx = st.session_state.pop("_tx_pending_delete")
+            if 0 <= idx < len(st.session_state.tx_rows):
+                st.session_state.tx_rows.pop(idx)
+                # Clear all row widget keys so Streamlit re-indexes cleanly
+                for key in list(st.session_state.keys()):
+                    if key.startswith("td_"):
+                        del st.session_state[key]
+
+        if st.session_state.get("_tx_pending_add"):
+            from datetime import date as _date
+            st.session_state.tx_rows.append({
+                "date":     _date.today().strftime("%d %b %Y"),
+                "name":     "",
+                "amount":   "",
+                "category": "Unknown",
+            })
+            st.session_state._tx_pending_add = False
+
+        rows = st.session_state.tx_rows
         vendor_rule_queue = []
         new_cats_needed   = []
 
-        # ── Table header ──────────────────────────────────────────────────────
-        st.markdown('<table class="tx-table"><thead><tr>'
-                    '<th style="width:13%">Date</th>'
-                    '<th style="width:30%">Merchant</th>'
-                    '<th style="width:13%">Amount</th>'
-                    '<th style="width:36%">Category</th>'
-                    '<th style="width:8%"></th>'
-                    '</tr></thead></table>', unsafe_allow_html=True)
-
-        # ── Rows ──────────────────────────────────────────────────────────────
+        # ── Render each row ───────────────────────────────────────────────────
         for i, row in enumerate(rows):
-            c_date, c_name, c_amt, c_cat, c_del = st.columns([1.3, 3, 1.3, 3.6, 0.8])
+            c_date, c_name, c_amt, c_cat, c_del = st.columns([1.3, 3.0, 1.3, 3.4, 0.6])
 
             with c_date:
-                val = st.text_input("date", value=str(row.get("date","")),
-                                    label_visibility="collapsed",
-                                    key=f"td_{i}_date", placeholder="DD MMM YYYY")
-                if val != row.get("date",""):
-                    rows[i]["date"] = val
+                new_val = st.text_input("Date", value=str(row.get("date","")),
+                                        label_visibility="collapsed",
+                                        key=f"td_{i}_date", placeholder="DD MMM YYYY")
+                rows[i]["date"] = new_val
 
             with c_name:
-                val = st.text_input("merchant", value=str(row.get("name","")),
-                                    label_visibility="collapsed",
-                                    key=f"td_{i}_name", placeholder="Merchant")
-                if val != row.get("name",""):
-                    rows[i]["name"] = val
+                new_val = st.text_input("Merchant", value=str(row.get("name","")),
+                                        label_visibility="collapsed",
+                                        key=f"td_{i}_name", placeholder="Merchant")
+                rows[i]["name"] = new_val
 
             with c_amt:
-                val = st.text_input("amount", value=str(row.get("amount","")),
-                                    label_visibility="collapsed",
-                                    key=f"td_{i}_amt", placeholder="0.00")
-                if val != row.get("amount",""):
-                    rows[i]["amount"] = val
+                new_val = st.text_input("Amount", value=str(row.get("amount","")),
+                                        label_visibility="collapsed",
+                                        key=f"td_{i}_amt", placeholder="0.00")
+                rows[i]["amount"] = new_val
 
             with c_cat:
                 prev_cat = str(row.get("category","Unknown"))
                 if prev_cat not in cat_options:
                     prev_cat = "Unknown"
-                new_cat = st.selectbox("cat", cat_options,
+                new_cat = st.selectbox("Category", cat_options,
                                        index=cat_options.index(prev_cat),
                                        label_visibility="collapsed",
                                        key=f"td_{i}_cat")
@@ -853,36 +862,31 @@ elif st.session_state.step == 3:
                             vendor_rule_queue.append((vendor, new_cat))
 
             with c_del:
-                # Vertically nudge button to align with inputs
-                st.markdown("<div class='del-btn' style='padding-top:2px'>",
-                            unsafe_allow_html=True)
-                if st.button("✕", key=f"td_{i}_del", help="Delete row"):
-                    delete_idx = i
-                st.markdown("</div>", unsafe_allow_html=True)
+                # Use on_click callback — fires before rerun so state is clean
+                def _make_delete_cb(idx):
+                    def _cb():
+                        st.session_state._tx_pending_delete = idx
+                    return _cb
+                st.button("✕", key=f"td_{i}_del",
+                          on_click=_make_delete_cb(i),
+                          help="Delete this row",
+                          use_container_width=True)
 
-        # Apply deletion after loop — avoids mutating while iterating
-        if delete_idx is not None:
-            rows.pop(delete_idx)
-            st.session_state.tx_rows = rows
-            st.rerun()
+        # Persist row edits
+        st.session_state.tx_rows = rows
 
-        # Auto-save vendor rules silently
+        # Auto-save vendor rules
         for vendor, category in vendor_rule_queue:
             save_vendor_rule(uid, vendor, category, "contains")
 
-        st.session_state.tx_rows = rows
-
         # ── Add transaction button ─────────────────────────────────────────────
-        st.markdown("<div class='add-tx-btn'>", unsafe_allow_html=True)
-        if st.button("＋  Add transaction", use_container_width=True):
-            from datetime import date as _date
-            rows.append({"date": _date.today().strftime("%d %b %Y"),
-                         "name": "", "amount": "", "category": "Unknown"})
-            st.session_state.tx_rows = rows
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+        def _add_row_cb():
+            st.session_state._tx_pending_add = True
 
-        # ── Rebuild df_edited from rows ───────────────────────────────────────
+        st.button("＋  Add transaction", use_container_width=True,
+                  on_click=_add_row_cb, key="add_tx_btn")
+
+        # ── Rebuild df_edited ─────────────────────────────────────────────────
         df_edited = pd.DataFrame(rows)
         df_edited["amount"] = df_edited["amount"].map(parse_amount)
 
