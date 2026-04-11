@@ -6,7 +6,7 @@ st.markdown(AUTH_CSS, unsafe_allow_html=True)
 
 # Already logged in → go straight to app
 if is_logged_in():
-    st.switch_page("app.py")
+    st.switch_page("frontend.py")
 
 st.markdown("""
 <div class="auth-card">
