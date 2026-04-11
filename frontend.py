@@ -651,9 +651,12 @@ elif st.session_state.step == 3:
             try: return float(s)
             except ValueError: return 0.0
 
-        # Pre-build df_edited from current tx_rows state for metrics + charts
-        _rows_now = st.session_state.get("tx_rows", df[["date","name","amount","category"]].to_dict("records"))
-        df_edited = pd.DataFrame(_rows_now)
+        # Build df_edited from tx_rows — this is the live working copy.
+        # tx_rows is already mutated by any pending delete/add above,
+        # so metrics and charts always reflect the current state.
+        _rows_now = st.session_state.get("tx_rows",
+                    df[["date","name","amount","category"]].to_dict("records"))
+        df_edited = pd.DataFrame(_rows_now) if _rows_now else df[["date","name","amount","category"]].copy()
         df_edited["amount"] = df_edited["amount"].map(parse_amount)
 
         # ── Metrics ──────────────────────────────────────────────────────────
@@ -804,17 +807,17 @@ elif st.session_state.step == 3:
             st.session_state.tx_rows = df[["date","name","amount","category"]].copy().to_dict("records")
             st.session_state.tx_rows_source = _src_key
 
-        # ── Handle pending actions set by callbacks ────────────────────────────
-        # Callbacks fire before the page re-renders, so session_state is already
-        # updated by the time we read it here.
+        # ── Handle pending actions set by callbacks ──────────────────────────
+        # on_click fires BEFORE the rerun, so these are processed first.
+        # We explicitly rerun after mutation so widgets re-index from scratch.
         if st.session_state.get("_tx_pending_delete") is not None:
             idx = st.session_state.pop("_tx_pending_delete")
             if 0 <= idx < len(st.session_state.tx_rows):
                 st.session_state.tx_rows.pop(idx)
-                # Clear all row widget keys so Streamlit re-indexes cleanly
-                for key in list(st.session_state.keys()):
-                    if key.startswith("td_"):
-                        del st.session_state[key]
+            # Wipe all td_ widget state so row keys re-index cleanly
+            for k in [k for k in st.session_state if k.startswith("td_")]:
+                del st.session_state[k]
+            st.rerun()
 
         if st.session_state.get("_tx_pending_add"):
             from datetime import date as _date
@@ -825,6 +828,9 @@ elif st.session_state.step == 3:
                 "category": "Unknown",
             })
             st.session_state._tx_pending_add = False
+            for k in [k for k in st.session_state if k.startswith("td_")]:
+                del st.session_state[k]
+            st.rerun()
 
         rows = st.session_state.tx_rows
         vendor_rule_queue = []
@@ -894,8 +900,10 @@ elif st.session_state.step == 3:
         st.button("＋  Add transaction", use_container_width=True,
                   on_click=_add_row_cb, key="add_tx_btn")
 
-        # ── Rebuild df_edited ─────────────────────────────────────────────────
-        df_edited = pd.DataFrame(rows)
+        # ── Rebuild df_edited from live rows + persist ───────────────────────
+        st.session_state.tx_rows = rows  # persist any inline field edits
+        df_edited = pd.DataFrame(rows) if rows else pd.DataFrame(
+            columns=["date","name","amount","category"])
         df_edited["amount"] = df_edited["amount"].map(parse_amount)
 
         # ── Sentinel: inline add-new-category UI ─────────────────────────────
