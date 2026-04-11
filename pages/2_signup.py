@@ -6,7 +6,7 @@ st.set_page_config(page_title="Sign Up — Expense AI", page_icon="💳", layout
 st.markdown(AUTH_CSS, unsafe_allow_html=True)
 
 if is_logged_in():
-    st.switch_page("app.py")
+    st.switch_page("frontend.py")
 
 st.markdown("""
 <div class="auth-card">
