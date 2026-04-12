@@ -165,17 +165,8 @@ for report in reports:
         </div>
         """, unsafe_allow_html=True)
 
-        # ── Transaction table ──────────────────────────────────────────────────
-        st.markdown("""
-        <table style="width:100%;border-collapse:collapse;font-size:13px">
-          <thead><tr>
-            <th style="color:#555;font-weight:400;text-align:left;padding:6px 10px;border-bottom:1px solid #2a2a38;font-size:10px;text-transform:uppercase;letter-spacing:.06em;width:12%">Date</th>
-            <th style="color:#555;font-weight:400;text-align:left;padding:6px 10px;border-bottom:1px solid #2a2a38;font-size:10px;text-transform:uppercase;letter-spacing:.06em;width:38%">Merchant</th>
-            <th style="color:#555;font-weight:400;text-align:left;padding:6px 10px;border-bottom:1px solid #2a2a38;font-size:10px;text-transform:uppercase;letter-spacing:.06em;width:15%">Amount</th>
-            <th style="color:#555;font-weight:400;text-align:left;padding:6px 10px;border-bottom:1px solid #2a2a38;font-size:10px;text-transform:uppercase;letter-spacing:.06em">Category</th>
-          </tr></thead>
-          <tbody>""", unsafe_allow_html=True)
-
+        # ── Transaction table — built in one pass, rendered in one call ─────────
+        th = "color:#555;font-weight:400;text-align:left;padding:6px 10px;border-bottom:1px solid #2a2a38;font-size:10px;text-transform:uppercase;letter-spacing:.06em"
         rows_html = ""
         for item in items:
             vendor = item.get("vendor_name") or ""
@@ -191,7 +182,16 @@ for report in reports:
               <td style="padding:8px 10px;border-bottom:1px solid #1e1e28">{cat_pill(cat)}</td>
             </tr>"""
 
-        st.markdown(rows_html + "</tbody></table>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr>
+            <th style="{th};width:12%">Date</th>
+            <th style="{th};width:38%">Merchant</th>
+            <th style="{th};width:15%">Amount</th>
+            <th style="{th}">Category</th>
+          </tr></thead>
+          <tbody>{rows_html}</tbody>
+        </table>""", unsafe_allow_html=True)
 
         # ── Delete button — inside expander, full native Streamlit ─────────────
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
