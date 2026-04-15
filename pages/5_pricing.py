@@ -226,15 +226,19 @@ if st.session_state.get("_checkout_tier"):
             customer_email=email,
             metadata={"uid": uid, "tier": chosen_tier},
         )
-        st.markdown(
-            f'<meta http-equiv="refresh" content="0; url={checkout.url}">',
-            unsafe_allow_html=True,
-        )
-        st.markdown(
-            f'Redirecting to Stripe checkout... '
-            f'<a href="{checkout.url}" style="color:#f0c040">Click here if not redirected</a>',
-            unsafe_allow_html=True,
-        )
+        # Must redirect at the TOP LEVEL window — Stripe blocks iframe checkout
+        st.markdown(f"""
+        <script>
+            window.top.location.href = "{checkout.url}";
+        </script>
+        <p style="color:#888;font-size:.9rem">
+            Redirecting to Stripe...
+            <a href="{checkout.url}" style="color:#f0c040"
+               onclick="window.top.location.href=this.href;return false;">
+               Click here if not redirected
+            </a>
+        </p>
+        """, unsafe_allow_html=True)
     except ImportError:
         st.error("stripe package not installed. Run: pip install stripe")
     except Exception as e:
