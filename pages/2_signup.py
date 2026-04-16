@@ -4,17 +4,33 @@ import re
 
 st.set_page_config(page_title="Sign Up — Expense AI", page_icon="💳", layout="centered")
 st.markdown(AUTH_CSS, unsafe_allow_html=True)
+st.markdown("""
+<style>
+div[data-testid="stFormSubmitButton"] button {
+    background-color: #f0c040 !important;
+    color: #0f0f13 !important;
+    border: none !important;
+    font-weight: 600 !important;
+    width: 100% !important;
+}
+[data-testid="InputInstructions"] { display: none !important; }
+</style>""", unsafe_allow_html=True)
 
 if is_logged_in():
     st.switch_page("frontend.py")
 
-st.markdown("""
-<div class="auth-card">
-  <div class="auth-logo">💳</div>
-  <div class="auth-title">Create your account</div>
-  <div class="auth-subtitle">Start categorizing your expenses for free</div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown("""<div style="text-align:center;padding:48px 0 24px">
+  <div style="font-family:'DM Sans',sans-serif;font-size:2.4rem;font-weight:700;
+              font-style:italic;color:#f0c040;letter-spacing:.04em;margin-bottom:8px">
+    CATEGORIZ
+  </div>
+  <div style="font-size:1.1rem;font-weight:500;color:#e8e6e1;margin-bottom:4px">
+    Create your account
+  </div>
+  <div style="font-size:.85rem;color:#666">
+    Start categorizing your expenses for free
+  </div>
+</div>""", unsafe_allow_html=True)
 
 _, col, _ = st.columns([1, 2, 1])
 
