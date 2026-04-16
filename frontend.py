@@ -456,7 +456,7 @@ if st.session_state.step in (1, 2):
         rd_total = sum(len(v) for v in st.session_state.annotations.values())
 
         # ── Toolbar: redact, undo, categorize, reset ─────────────────────
-        st.markdown("#### Redaction tools")
+        st.markdown("#### 2. Redaction tool")
         bar1, bar2, bar3, bar4 = st.columns([2, 2, 2, 1])
         with bar1:
             redact_btn = st.button(
@@ -493,10 +493,10 @@ if st.session_state.step in (1, 2):
             status = f"⬛ {rd_count_pg} redaction{'s' if rd_count_pg!=1 else ''} on this page" if rd_count_pg else "🖱️ Drag on the document to select an area to redact"
             st.markdown(f'<div class="info-box">{status}</div>', unsafe_allow_html=True)
 
-        # ── Page nav — below info box, left-biased to sit over A4 document ───
-        # A4 at typical zoom sits in roughly the left 55% of the wide layout.
-        # We use a 4-column split so the nav lands centred over the document.
-        nav1, nav2, nav3, nav4 = st.columns([1, 1, 1, 4])
+        # ── Page nav — below info box, centred over A4 document ─────────────
+        # Left padding col shifts the group ~10% right from the left edge.
+        # Arrow buttons are narrow (0.4), page count wider (1) for readability.
+        _, nav1, nav2, nav3, _ = st.columns([1, 0.4, 1, 0.4, 3])
         with nav1:
             if st.button("◀", use_container_width=True, disabled=pn == 0,
                          key="pg_prev"):
@@ -612,7 +612,7 @@ if st.session_state.step in (1, 2):
 
     # ── Upload area + info cards (hidden once PDF is loaded) ──────────────
     if not pdf_loaded:
-        st.markdown("### Upload your bank statement")
+        st.markdown("### 1. Upload your bank statement")
 
     up_col, info_col = st.columns([2, 1]) if not pdf_loaded else (st.container(), None)
 
@@ -649,7 +649,7 @@ if st.session_state.step in (1, 2):
 
     if not pdf_loaded and info_col is not None:
         with info_col:
-            st.markdown("### The Process")
+            st.markdown("### How it works")
             st.markdown("""<div class="card">
                 <h3>🔒 Privacy first</h3>
                 <p>You control what the AI sees. Redact account numbers, BSBs, names, and addresses before analysis.</p>
