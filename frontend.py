@@ -429,8 +429,12 @@ with st.sidebar:
             clear_session()
             st.switch_page("pages/1_login.py")
 
-st.markdown("# 💳 Expense Categorizer")
-st.markdown("*AI-powered bank statement analysis with privacy-first redaction*")
+st.markdown("""
+<div style="padding:12px 0 4px">
+  <span style="font-family:'DM Sans',sans-serif;font-size:2.4rem;font-weight:700;
+               font-style:italic;color:#f0c040;letter-spacing:.04em">CATEGORIZ</span>
+</div>
+""", unsafe_allow_html=True)
 st.markdown("---")
 
 # ═══════════════════════════════════════════════════════════
@@ -596,6 +600,7 @@ if st.session_state.step in (1, 2):
 
     # ── Upload area + info cards (hidden once PDF is loaded) ──────────────
     if not pdf_loaded:
+        st.markdown("*AI-powered bank statement analysis with privacy-first redaction*")
         st.markdown("### Upload your bank statement")
 
     up_col, info_col = st.columns([2, 1]) if not pdf_loaded else (st.container(), None)
@@ -633,6 +638,7 @@ if st.session_state.step in (1, 2):
 
     if not pdf_loaded and info_col is not None:
         with info_col:
+            st.markdown("### The Process")
             st.markdown("""<div class="card">
                 <h3>🔒 Privacy first</h3>
                 <p>You control what the AI sees. Redact account numbers, BSBs, names, and addresses before analysis.</p>
