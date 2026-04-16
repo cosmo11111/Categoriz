@@ -650,15 +650,15 @@ if st.session_state.step in (1, 2):
             st.markdown("### How it works")
             st.markdown("""<div class="card">
                 <h3>🔒 Privacy first</h3>
-                <p>Before the AI reads anything, you can black out sensitive details such as account numbers, BSBs, names, addresses, or anything else you'd rather keep private. Redacted areas are permanently removed from the document the AI receives. We don't store your PDF at any point. Your bank statement never leaves your control.</p>
+                <p>Before the AI reads anything, you can black out sensitive details such as account numbers, BSBs, names, addresses, or anything else you'd rather keep private. Redacted areas are permanently removed from the document the AI receives. We don't store your PDF at any point.</p>
             </div>
             <div class="card">
                 <h3>🤖 Gemini AI</h3>
-                <p>Transactions are extracted and categorized automatically across all pages.</p>
+                <p>Our AI then categorizes each transaction within your statement. You can add your own custom categories, edit any categorization,  and set vendor rules so your regular merchants are always categorized correctly in future uploads.</p>
             </div>
             <div class="card">
                 <h3>📊 Instant insights</h3>
-                <p>See spending by category with totals and a breakdown table.</p>
+                <p>See a top level view of your spending and also review the detailed list of your transactions. Add or remove transactions manually, then save the report to your account so you can come back and compare month over month.</p>
             </div>""", unsafe_allow_html=True)
 
     # File uploader still needed when PDF is loaded (hidden label)
