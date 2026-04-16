@@ -973,8 +973,8 @@ elif st.session_state.step == 3:
                     ))
                     centre_text = f"${total_spend_abs:,.0f}" if not show_pct else "100%"
                     fig_pie.update_layout(
-                        height=400,
-                        margin=dict(l=40, r=40, t=60, b=40),
+                        height=460,
+                        margin=dict(l=40, r=40, t=100, b=20),
                         paper_bgcolor="rgba(0,0,0,0)",
                         plot_bgcolor="rgba(0,0,0,0)",
                         font=dict(color="#c9c7c0", size=11, family="DM Sans"),
