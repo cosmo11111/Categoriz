@@ -316,7 +316,15 @@ Bank statement text:
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 💳 Expense AI")
+    if st.button("⌂ Home", use_container_width=True):
+        for k in ["step","pdf_bytes","redacted_pdf_bytes","annotations",
+                  "pending","page_num","transactions","categorized",
+                  "tx_rows","tx_rows_source","_tx_pending_delete","_tx_pending_add"]:
+            st.session_state.pop(k, None)
+        for k in [k for k in st.session_state if k.startswith("td_")]:
+            del st.session_state[k]
+        render_page_b64.clear()
+        st.rerun()
     st.markdown("---")
 
     # Step progress
