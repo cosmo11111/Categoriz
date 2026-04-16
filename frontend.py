@@ -455,9 +455,9 @@ if st.session_state.step in (1, 2):
         pk = str(pn)
         rd_total = sum(len(v) for v in st.session_state.annotations.values())
 
-        # ── Sticky action bar ─────────────────────────────────────────────
+        # ── Toolbar: redact, undo, categorize, reset ─────────────────────
         st.markdown("#### Redaction tools")
-        bar1, bar2, bar3, bar4, bar5 = st.columns([2, 2, 2, 2, 1])
+        bar1, bar2, bar3, bar4 = st.columns([2, 2, 2, 1])
         with bar1:
             redact_btn = st.button(
                 "⬛ Redact Selection  [R]",
@@ -476,21 +476,6 @@ if st.session_state.step in (1, 2):
                 use_container_width=True, type="primary",
             )
         with bar4:
-            # Page nav inline
-            pn_c1, pn_c2, pn_c3 = st.columns([1, 2, 1])
-            with pn_c1:
-                if st.button("◀", use_container_width=True, disabled=pn == 0):
-                    st.session_state.page_num -= 1
-                    st.session_state.pending = None
-                    st.rerun()
-            with pn_c2:
-                st.markdown(f"<p style='text-align:center;margin:6px 0;font-size:.85rem;color:#888'>p.{pn+1}/{n_pages}</p>", unsafe_allow_html=True)
-            with pn_c3:
-                if st.button("▶", use_container_width=True, disabled=pn == n_pages - 1):
-                    st.session_state.page_num += 1
-                    st.session_state.pending = None
-                    st.rerun()
-        with bar5:
             if st.button("✕ Reset", use_container_width=True):
                 st.session_state.pdf_bytes = None
                 st.session_state.annotations = {}
@@ -507,6 +492,29 @@ if st.session_state.step in (1, 2):
             rd_count_pg = len(st.session_state.annotations.get(pk, []))
             status = f"⬛ {rd_count_pg} redaction{'s' if rd_count_pg!=1 else ''} on this page" if rd_count_pg else "🖱️ Drag on the document to select an area to redact"
             st.markdown(f'<div class="info-box">{status}</div>', unsafe_allow_html=True)
+
+        # ── Page nav — below info box, left-biased to sit over A4 document ───
+        # A4 at typical zoom sits in roughly the left 55% of the wide layout.
+        # We use a 4-column split so the nav lands centred over the document.
+        nav1, nav2, nav3, nav4 = st.columns([1, 1, 1, 4])
+        with nav1:
+            if st.button("◀", use_container_width=True, disabled=pn == 0,
+                         key="pg_prev"):
+                st.session_state.page_num -= 1
+                st.session_state.pending = None
+                st.rerun()
+        with nav2:
+            st.markdown(
+                f"<p style='text-align:center;margin:6px 0;font-size:.85rem;"
+                f"color:#888'>{pn+1} / {n_pages}</p>",
+                unsafe_allow_html=True,
+            )
+        with nav3:
+            if st.button("▶", use_container_width=True,
+                         disabled=pn == n_pages - 1, key="pg_next"):
+                st.session_state.page_num += 1
+                st.session_state.pending = None
+                st.rerun()
 
         # Handle button actions
         if redact_btn:
