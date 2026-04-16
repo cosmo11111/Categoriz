@@ -383,9 +383,8 @@ with st.sidebar:
         render_page_b64.clear()
         st.rerun()
 
-    # Middle: Step progress — pushed down 20% with top padding
-    # Bottom padding ensures it never overlaps the pinned user menu
-    st.markdown("<div style='padding-top:20vh;padding-bottom:220px'>", unsafe_allow_html=True)
+    # Step progress — sits directly under the Home button, no offset
+    st.markdown("<div style='padding-top:1rem'>", unsafe_allow_html=True)
     steps = [
         (1, "Upload statement"),
         (2, "Redact private info"),
