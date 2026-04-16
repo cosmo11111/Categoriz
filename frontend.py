@@ -49,6 +49,11 @@ st.markdown("""
 
   html, body, .stApp { font-family: 'DM Sans', sans-serif; background-color: #0f0f13; color: #e8e6e1; }
 
+  /* Remove Streamlit header bar */
+  [data-testid="stHeader"] { display: none !important; }
+  /* Remove the gap the header leaves behind */
+  .block-container { padding-top: 1rem !important; }
+
   /* Sidebar */
   section[data-testid="stSidebar"] { background: #17171d !important; border-right: 1px solid #2a2a35; }
   section[data-testid="stSidebar"] * { color: #c9c7c0 !important; }
