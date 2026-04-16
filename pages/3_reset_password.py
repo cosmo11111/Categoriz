@@ -118,17 +118,46 @@ else:
   </div>
 </div>""", unsafe_allow_html=True)
 
+    # ── Exchange token for session immediately on page load ───────────────────
+    # Supabase invalidates the OTP token quickly — we must verify it as soon
+    # as the page loads and store the session, then use that session to update.
+    if "reset_session_verified" not in st.session_state:
+        try:
+            sb    = get_supabase()
+            token = params.get("token","")
+            email_param = params.get("email","")
+            # Try verify_otp to establish a session
+            res = sb.auth.verify_otp({
+                "email": email_param,
+                "token": token,
+                "type":  "recovery",
+            })
+            st.session_state.reset_session_verified = True
+            st.session_state.reset_email = email_param
+        except Exception:
+            # Token may need email from user — fall through to form
+            st.session_state.reset_session_verified = False
+
     _, col, _ = st.columns([1, 2, 1])
     with col:
         msg_placeholder = st.empty()
-        email        = st.text_input("Email address", placeholder="you@example.com")
+        # Only show email field if we couldn't auto-verify
+        if not st.session_state.get("reset_session_verified"):
+            email = st.text_input("Email address", placeholder="you@example.com")
+        else:
+            email = st.session_state.get("reset_email", "")
+            st.markdown(
+                f"<p style='color:#888;font-size:.85rem;margin-bottom:8px'>"
+                f"Resetting password for <b style='color:#e8e6e1'>{email}</b></p>",
+                unsafe_allow_html=True,
+            )
         new_password = st.text_input("New password", type="password",
                                      placeholder="At least 8 characters")
         confirm      = st.text_input("Confirm password", type="password",
                                      placeholder="••••••••")
 
         if st.button("Update password", type="primary"):
-            if not email.strip():
+            if not st.session_state.get("reset_session_verified") and not email.strip():
                 msg_placeholder.markdown(
                     '<div class="auth-error">Please enter your email address.</div>',
                     unsafe_allow_html=True,
@@ -145,16 +174,15 @@ else:
                 )
             else:
                 try:
-                    sb    = get_supabase()
-                    token = params["token"]
+                    sb = get_supabase()
 
-                    st.info(f"🐛 Verifying token for {email.strip()}...")
-                    res = sb.auth.verify_otp({
-                        "email": email.strip(),
-                        "token": token,
-                        "type":  "recovery",
-                    })
-                    st.info(f"🐛 Verify OK, updating password...")
+                    if not st.session_state.get("reset_session_verified"):
+                        # Fallback: try verify with user-provided email
+                        sb.auth.verify_otp({
+                            "email": email.strip(),
+                            "token": params.get("token",""),
+                            "type":  "recovery",
+                        })
 
                     sb.auth.update_user({"password": new_password})
 
@@ -166,6 +194,9 @@ else:
                         unsafe_allow_html=True,
                     )
                     st.query_params.clear()
+                    # Clear reset session so it doesn't persist
+                    st.session_state.pop("reset_session_verified", None)
+                    st.session_state.pop("reset_email", None)
 
                 except Exception as e:
                     msg_placeholder.markdown(
@@ -175,4 +206,3 @@ else:
                         'request a new one</a>.</div>',
                         unsafe_allow_html=True,
                     )
-                    st.write("🐛 Full exception:", str(e))
