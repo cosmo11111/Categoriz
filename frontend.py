@@ -366,10 +366,59 @@ with st.sidebar:
     st.markdown("---")
     if user:
         email = user.email if hasattr(user, "email") else user.get("email", "")
-        st.markdown(f"<p style='color:#888;font-size:.8rem;margin-bottom:4px'>Signed in as</p>", unsafe_allow_html=True)
-        st.markdown(f"<p style='color:#e8e6e1;font-size:.85rem;font-weight:500;word-break:break-all'>{email}</p>", unsafe_allow_html=True)
-        if st.button("⚡ Upgrade plan", use_container_width=True):
-            st.switch_page("pages/5_pricing.py")
+        uid_sb = user.id if hasattr(user, "id") else user.get("id") if user else None
+
+        # ── Tier badge ────────────────────────────────────────────────────────
+        from db import get_profile, TIER_LABELS, TIER_LIMITS
+        profile = get_profile(uid_sb) if uid_sb else {}
+        tier    = profile.get("subscription_tier", "free_trial")
+        used    = profile.get("analyses_used", 0)
+        limit   = profile.get("analyses_limit", 3)
+
+        TIER_COLORS = {
+            "free_trial": "#666",
+            "starter":    "#3b82f6",
+            "unlimited":  "#f0c040",
+        }
+        tier_color = TIER_COLORS.get(tier, "#666")
+        tier_label = TIER_LABELS.get(tier, "Free Trial")
+
+        st.markdown(f"<p style='color:#888;font-size:.8rem;margin-bottom:2px'>Signed in as</p>",
+                    unsafe_allow_html=True)
+        st.markdown(f"<p style='color:#e8e6e1;font-size:.85rem;font-weight:500;"
+                    f"word-break:break-all;margin-bottom:8px'>{email}</p>",
+                    unsafe_allow_html=True)
+
+        # Plan badge + usage
+        if tier == "unlimited":
+            usage_str = "Unlimited analyses"
+        elif tier == "free_trial":
+            usage_str = f"{used}/3 lifetime analyses"
+        else:
+            usage_str = f"{used}/{limit} analyses this month"
+
+        st.markdown(f"""
+        <div style="background:#1a1a24;border:1px solid #2a2a38;border-radius:8px;
+                    padding:8px 12px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11px;font-weight:600;color:{tier_color};
+                         text-transform:uppercase;letter-spacing:.05em">{tier_label}</span>
+          </div>
+          <div style="font-size:11px;color:#555;margin-top:2px">{usage_str}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        btn_label = "📂 Saved Reports"
+        if tier == "free_trial":
+            if st.button("⚡ Upgrade plan", use_container_width=True, type="primary"):
+                st.switch_page("pages/5_pricing.py")
+        elif tier == "starter":
+            if st.button("⚡ Upgrade to Unlimited", use_container_width=True):
+                st.switch_page("pages/5_pricing.py")
+        else:
+            if st.button("⚡ Manage plan", use_container_width=True):
+                st.switch_page("pages/5_pricing.py")
+
         if st.button("📂 Saved Reports", use_container_width=True):
             st.switch_page("pages/4_reports.py")
         if st.button("Sign out", use_container_width=True):
@@ -380,8 +429,12 @@ with st.sidebar:
             clear_session()
             st.switch_page("pages/1_login.py")
 
-st.markdown("# 💳 Expense Categorizer")
-st.markdown("*AI-powered bank statement analysis with privacy-first redaction*")
+st.markdown("""
+<div style="padding:18px 0 8px">
+  <span style="font-family:'DM Sans',sans-serif;font-size:2rem;font-weight:700;
+               font-style:italic;color:#f0c040;letter-spacing:.04em">CATEGORIZ</span>
+</div>
+""", unsafe_allow_html=True)
 st.markdown("---")
 
 # ═══════════════════════════════════════════════════════════
@@ -401,13 +454,20 @@ if st.session_state.step in (1, 2):
         pk = str(pn)
         rd_total = sum(len(v) for v in st.session_state.annotations.values())
 
-        # ── Sticky action bar ─────────────────────────────────────────────
-        st.markdown("#### Redaction tools")
-        bar1, bar2, bar3, bar4, bar5 = st.columns([2, 2, 2, 2, 1])
+        # ── Compact logo on redaction page ───────────────────────────────────
+        st.markdown("""
+        <div style="padding:4px 0 6px">
+          <span style="font-family:'DM Sans',sans-serif;font-size:1.2rem;font-weight:700;
+                       font-style:italic;color:#f0c040;letter-spacing:.04em">CATEGORIZ</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Toolbar: redact + undo only ───────────────────────────────────────
+        bar1, bar2, bar3 = st.columns([2, 2, 1])
         with bar1:
             redact_btn = st.button(
                 "⬛ Redact Selection  [R]",
-                use_container_width=True, type="primary",
+                use_container_width=True,
                 disabled=st.session_state.pending is None,
             )
         with bar2:
@@ -417,24 +477,6 @@ if st.session_state.step in (1, 2):
                 disabled=not st.session_state.annotations.get(pk),
             )
         with bar3:
-            label = f"Analyse ({rd_total} redaction{'s' if rd_total!=1 else ''}) →" if rd_total else "Analyse (no redactions) →"
-            analyse_btn = st.button(label, use_container_width=True)
-        with bar4:
-            # Page nav inline
-            pn_c1, pn_c2, pn_c3 = st.columns([1, 2, 1])
-            with pn_c1:
-                if st.button("◀", use_container_width=True, disabled=pn == 0):
-                    st.session_state.page_num -= 1
-                    st.session_state.pending = None
-                    st.rerun()
-            with pn_c2:
-                st.markdown(f"<p style='text-align:center;margin:6px 0;font-size:.85rem;color:#888'>p.{pn+1}/{n_pages}</p>", unsafe_allow_html=True)
-            with pn_c3:
-                if st.button("▶", use_container_width=True, disabled=pn == n_pages - 1):
-                    st.session_state.page_num += 1
-                    st.session_state.pending = None
-                    st.rerun()
-        with bar5:
             if st.button("✕ Reset", use_container_width=True):
                 st.session_state.pdf_bytes = None
                 st.session_state.annotations = {}
@@ -444,7 +486,7 @@ if st.session_state.step in (1, 2):
                 render_page_b64.clear()
                 st.rerun()
 
-        # Pending selection status
+        # Status info box
         if st.session_state.pending:
             st.markdown('<div class="info-box red">🔴 Selection ready — click <b>Redact Selection</b> to black it out</div>', unsafe_allow_html=True)
         else:
@@ -452,7 +494,7 @@ if st.session_state.step in (1, 2):
             status = f"⬛ {rd_count_pg} redaction{'s' if rd_count_pg!=1 else ''} on this page" if rd_count_pg else "🖱️ Drag on the document to select an area to redact"
             st.markdown(f'<div class="info-box">{status}</div>', unsafe_allow_html=True)
 
-        # Handle button actions
+        # Handle redact/undo
         if redact_btn:
             if st.session_state.pending:
                 x0,y0,x1,y1 = st.session_state.pending
@@ -469,16 +511,6 @@ if st.session_state.step in (1, 2):
                 if not st.session_state.annotations[pk]:
                     del st.session_state.annotations[pk]
             st.session_state.pending = None
-            st.rerun()
-
-        if analyse_btn:
-            with st.spinner("Applying redactions…"):
-                if st.session_state.annotations:
-                    st.session_state.redacted_pdf_bytes = apply_redactions(
-                        pdf_bytes, st.session_state.annotations)
-                else:
-                    st.session_state.redacted_pdf_bytes = pdf_bytes
-            st.session_state.step = 3
             st.rerun()
 
         # ── Keyboard shortcuts ────────────────────────────────────────────────
@@ -538,12 +570,84 @@ if st.session_state.step in (1, 2):
             box = (event.selection.box or [{}])[0]
             xs, ys = box.get("x",[]), box.get("y",[])
             if len(xs)>=2 and len(ys)>=2:
-                new = (min(xs)/zm, (img_h-max(ys))/zm, max(xs)/zm, (img_h-min(ys))/zm)
-                if new != st.session_state.pending:
-                    st.session_state.pending = new
+                new_sel = (min(xs)/zm, (img_h-max(ys))/zm, max(xs)/zm, (img_h-min(ys))/zm)
+                if new_sel != st.session_state.pending:
+                    st.session_state.pending = new_sel
                     st.rerun()
         except Exception:
             pass
+
+        # ── Page nav — centred below the document ─────────────────────────────
+        _, nav_col, _ = st.columns([2, 1, 2])
+        with nav_col:
+            nc1, nc2, nc3 = st.columns([1, 2, 1])
+            with nc1:
+                if st.button("◀", use_container_width=True, disabled=pn == 0,
+                             key="pg_prev"):
+                    st.session_state.page_num -= 1
+                    st.session_state.pending = None
+                    st.rerun()
+            with nc2:
+                st.markdown(
+                    f"<p style='text-align:center;margin:6px 0;font-size:.85rem;"
+                    f"color:#888'>{pn+1} / {n_pages}</p>",
+                    unsafe_allow_html=True,
+                )
+            with nc3:
+                if st.button("▶", use_container_width=True,
+                             disabled=pn == n_pages - 1, key="pg_next"):
+                    st.session_state.page_num += 1
+                    st.session_state.pending = None
+                    st.rerun()
+
+        # ── Categorize Transactions button + confirm dialog ────────────────────
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+        # Show confirmation state
+        if st.session_state.get("_confirm_categorize"):
+            rd_total_confirm = sum(len(v) for v in st.session_state.annotations.values())
+            if rd_total_confirm:
+                st.markdown(
+                    f'<div class="info-box green">🔒 {rd_total_confirm} redaction'
+                    f'{"s" if rd_total_confirm!=1 else ""} applied — the AI will not see that content.</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    '<div class="info-box blue">ℹ️ No redactions applied — '
+                    'the full document will be analysed. '
+                    'Make sure you have removed any sensitive information first.</div>',
+                    unsafe_allow_html=True,
+                )
+            st.markdown(
+                "<p style='text-align:center;color:#e8e6e1;font-weight:500;"
+                "margin:12px 0 4px'>Is the document ready to analyse?</p>",
+                unsafe_allow_html=True,
+            )
+            conf1, conf2, conf3 = st.columns([1, 1, 1])
+            with conf2:
+                if st.button("✓ Yes, categorize it", type="primary",
+                             use_container_width=True, key="confirm_yes"):
+                    st.session_state._confirm_categorize = False
+                    with st.spinner("Applying redactions…"):
+                        if st.session_state.annotations:
+                            st.session_state.redacted_pdf_bytes = apply_redactions(
+                                pdf_bytes, st.session_state.annotations)
+                        else:
+                            st.session_state.redacted_pdf_bytes = pdf_bytes
+                    st.session_state.step = 3
+                    st.rerun()
+            with conf3:
+                if st.button("✕ Not yet", use_container_width=True, key="confirm_no"):
+                    st.session_state._confirm_categorize = False
+                    st.rerun()
+        else:
+            _, cat_col, _ = st.columns([1, 2, 1])
+            with cat_col:
+                if st.button("Categorize transactions →", type="primary",
+                             use_container_width=True, key="categorize_btn"):
+                    st.session_state._confirm_categorize = True
+                    st.rerun()
 
     # ── Upload area + info cards (hidden once PDF is loaded) ──────────────
     if not pdf_loaded:
@@ -584,38 +688,49 @@ if st.session_state.step in (1, 2):
 
     if not pdf_loaded and info_col is not None:
         with info_col:
-            st.markdown("""<div class="card">
-                <h3>🔒 Privacy first</h3>
-                <p>You control what the AI sees. Redact account numbers, BSBs, names, and addresses before analysis.</p>
+            st.markdown("""
+            <p style="font-size:.7rem;font-weight:600;color:#555;text-transform:uppercase;
+                      letter-spacing:.1em;margin:0 0 10px">The Process</p>
+            <div class="card">
+              <h3>① Upload</h3>
+              <p>Upload any PDF bank statement — personal, business, or credit card.
+              Multi-page statements are fully supported.</p>
             </div>
             <div class="card">
-                <h3>🤖 Gemini AI</h3>
-                <p>Transactions are extracted and categorized automatically across all pages.</p>
+              <h3>② Redact</h3>
+              <p>Drag to select and black out sensitive details — account numbers, BSBs,
+              names, or addresses — before the AI ever sees them. You stay in control.</p>
             </div>
             <div class="card">
-                <h3>📊 Instant insights</h3>
-                <p>See spending by category with totals and a breakdown table.</p>
-            </div>""", unsafe_allow_html=True)
+              <h3>③ Categorize</h3>
+              <p>Our AI reads every transaction and assigns it a spending category —
+              Food & Dining, Transport, Subscriptions, and more. Custom categories supported.</p>
+            </div>
+            <div class="card">
+              <h3>④ Save & Review</h3>
+              <p>View your spending breakdown with a category chart and vendor summary.
+              Save reports to compare month over month.</p>
+            </div>
+            """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════
-# STEP 3 — Categorize
+# STEP 3 — Results (AI call triggered from step 2 confirm)
 # ═══════════════════════════════════════════════════════════
 elif st.session_state.step == 3:
-    st.markdown("### Step 3 — AI Expense Categorization")
+    # Logo header on results page
+    st.markdown("""
+    <div style="padding:4px 0 6px">
+      <span style="font-family:'DM Sans',sans-serif;font-size:1.2rem;font-weight:700;
+                   font-style:italic;color:#f0c040;letter-spacing:.04em">CATEGORIZ</span>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown("---")
 
-    rd_count = sum(len(v) for v in st.session_state.annotations.values())
-    if rd_count:
-        st.markdown(f'<div class="info-box green">🔒 {rd_count} redaction{"s" if rd_count!=1 else ""} applied — the AI will not see that content.</div>', unsafe_allow_html=True)
+    if not st.session_state.categorized:
+        # Run the AI call immediately when arriving at step 3
+        run = True
     else:
-        st.markdown('<div class="info-box blue">ℹ️ No redactions applied. The full document will be analysed.</div>', unsafe_allow_html=True)
-
-    col_btn1, col_btn2, _ = st.columns([1,1,3])
-    with col_btn1:
-        run = st.button("🤖 Categorize Transactions", type="primary", use_container_width=True)
-    with col_btn2:
-        if st.button("← Back to Redaction", use_container_width=True):
-            st.session_state.step = 2
-            st.rerun()
+        run = False
 
     if run:
         # ── Usage gate ────────────────────────────────────────────────────────
