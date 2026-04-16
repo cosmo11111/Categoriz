@@ -221,23 +221,23 @@ COLORS_FILL = {
     "Orange":"rgba(255,153,0,0.35)",
 }
 DEMO_DATA = [
-    {"date": "01 Apr 2026", "name": "DANG GOOD CAFE",               "amount": -4.55,    "category": "Food & Dining"},
-    {"date": "01 Apr 2026", "name": "STOMPING GROUND BREWIN",        "amount": -22.37,   "category": "Food & Dining"},
-    {"date": "01 Apr 2026", "name": "Unknown",                       "amount": -13.00,   "category": "Unknown"},
-    {"date": "02 Apr 2026", "name": "AMPOL KEW 33261F",              "amount": -58.77,   "category": "Transport"},
-    {"date": "03 Apr 2026", "name": "WOOLWORTHS/18 WALPOLE ST",      "amount": -7.90,    "category": "Shopping"},
-    {"date": "04 Apr 2026", "name": "AMPOL KEW 33261F",              "amount": -2.00,    "category": "Transport"},
-    {"date": "04 Apr 2026", "name": "Kindle Unltd",                  "amount": -13.99,   "category": "Subscriptions"},
-    {"date": "04 Apr 2026", "name": "CANVA* I04841-0173708",         "amount": -20.00,   "category": "Subscriptions"},
-    {"date": "05 Apr 2026", "name": "Spotify P411178B22",            "amount": -15.99,   "category": "Subscriptions"},
-    {"date": "05 Apr 2026", "name": "WOOLWORTHS/18 WALPOLE ST",      "amount": -83.10,   "category": "Shopping"},
-    {"date": "07 Apr 2026", "name": "AMPOL KEW 33261F",              "amount": -64.52,   "category": "Transport"},
-    {"date": "07 Apr 2026", "name": "ZLR*Seven Creeks Hotel",        "amount": -25.08,   "category": "Food & Dining"},
-    {"date": "07 Apr 2026", "name": "Transfer from Savings Maximiser","amount": 3000.00, "category": "Income"},
-    {"date": "07 Apr 2026", "name": "Unknown",                       "amount": -2450.00, "category": "Unknown"},
-    {"date": "07 Apr 2026", "name": "Unknown",                       "amount": -400.00,  "category": "Unknown"},
-    {"date": "08 Apr 2026", "name": "AMPOL TALLAROOK 30026F",        "amount": -11.00,   "category": "Transport"},
-    {"date": "08 Apr 2026", "name": "DANG GOOD CAFE",                "amount": -17.60,   "category": "Food & Dining"},
+    {"date": "01 Apr 2026", "name": "DANG GOOD CAFE",                "vendor_clean": "Dang Good Cafe",    "amount": -4.55,    "category": "Food & Dining"},
+    {"date": "01 Apr 2026", "name": "STOMPING GROUND BREWIN",        "vendor_clean": "Stomping Ground",   "amount": -22.37,   "category": "Food & Dining"},
+    {"date": "01 Apr 2026", "name": "Unknown",                       "vendor_clean": None,                "amount": -13.00,   "category": "Unknown"},
+    {"date": "02 Apr 2026", "name": "AMPOL KEW 33261F",              "vendor_clean": "Ampol",             "amount": -58.77,   "category": "Transport"},
+    {"date": "03 Apr 2026", "name": "WOOLWORTHS/18 WALPOLE ST",      "vendor_clean": "Woolworths",        "amount": -7.90,    "category": "Shopping"},
+    {"date": "04 Apr 2026", "name": "AMPOL KEW 33261F",              "vendor_clean": "Ampol",             "amount": -2.00,    "category": "Transport"},
+    {"date": "04 Apr 2026", "name": "Kindle Unltd",                  "vendor_clean": "Kindle Unlimited",  "amount": -13.99,   "category": "Subscriptions"},
+    {"date": "04 Apr 2026", "name": "CANVA* I04841-0173708",         "vendor_clean": "Canva",             "amount": -20.00,   "category": "Subscriptions"},
+    {"date": "05 Apr 2026", "name": "Spotify P411178B22",            "vendor_clean": "Spotify",           "amount": -15.99,   "category": "Subscriptions"},
+    {"date": "05 Apr 2026", "name": "WOOLWORTHS/18 WALPOLE ST",      "vendor_clean": "Woolworths",        "amount": -83.10,   "category": "Shopping"},
+    {"date": "07 Apr 2026", "name": "AMPOL KEW 33261F",              "vendor_clean": "Ampol",             "amount": -64.52,   "category": "Transport"},
+    {"date": "07 Apr 2026", "name": "ZLR*Seven Creeks Hotel",        "vendor_clean": "Seven Creeks Hotel","amount": -25.08,   "category": "Food & Dining"},
+    {"date": "07 Apr 2026", "name": "Transfer from Savings Maximiser","vendor_clean": "Transfer",         "amount": 3000.00,  "category": "Income"},
+    {"date": "07 Apr 2026", "name": "Unknown",                       "vendor_clean": None,                "amount": -2450.00, "category": "Unknown"},
+    {"date": "07 Apr 2026", "name": "Unknown",                       "vendor_clean": None,                "amount": -400.00,  "category": "Unknown"},
+    {"date": "08 Apr 2026", "name": "AMPOL TALLAROOK 30026F",        "vendor_clean": "Ampol",             "amount": -11.00,   "category": "Transport"},
+    {"date": "08 Apr 2026", "name": "DANG GOOD CAFE",                "vendor_clean": "Dang Good Cafe",    "amount": -17.60,   "category": "Food & Dining"},
 ]
 
 # CATEGORY_COLORS now lives in db.py as DEFAULT_CATEGORY_COLORS
@@ -348,16 +348,26 @@ def categorize_with_gemini(text, all_categories: dict, vendor_rules: list):
     cat_list = ", ".join(all_categories.keys())
     prompt = f"""Extract ALL transactions from this bank statement text.
 Return ONLY a JSON array. Each object must have exactly these keys:
-"date" (string), "name" (string), "amount" (number, negative=debit positive=credit),
-"category" (one of: {cat_list}).
-If category is unclear use "Unknown".
+- "date"         (string, e.g. "01 Mar 2026")
+- "name"         (string, the raw transaction description exactly as it appears)
+- "vendor_clean" (string, a clean human-readable vendor name — e.g. "Ampol" from "AMPOL SUBIACO 44321F",
+                  "Netflix" from "NETFLIX 3421987234", "Woolworths" from "WOOLWORTHS/18 WALPOLE ST".
+                  For transfers, salary, or transactions with no clear vendor use the raw name as-is.
+                  For redacted entries use null.)
+- "amount"       (number, negative=debit/expense, positive=credit/income)
+- "category"     (one of: {cat_list}. Use "Unknown" if unclear.)
+
+Rules:
+- Include every transaction, including income, transfers, and redacted rows.
+- Do not skip or merge any transactions.
+- vendor_clean should be a short recognisable brand/company name, not a description.
 
 Bank statement text:
 {text}
 """
     response = model.generate_content(
         prompt,
-        generation_config={"response_mime_type": "application/json"}
+        generation_config={{"response_mime_type": "application/json"}}
     )
     raw = response.text.strip()
     if raw.startswith("```"):
@@ -821,7 +831,10 @@ elif st.session_state.step == 3:
         ).hexdigest()
 
         if "tx_rows" not in st.session_state or st.session_state.get("tx_rows_source") != _src_key:
-            st.session_state.tx_rows = df[["date","name","amount","category"]].copy().to_dict("records")
+            cols = ["date","name","amount","category"]
+            if "vendor_clean" in df.columns:
+                cols.append("vendor_clean")
+            st.session_state.tx_rows = df[cols].copy().to_dict("records")
             st.session_state.tx_rows_source = _src_key
 
         # ── Handle pending actions set by callbacks ──────────────────────────
@@ -854,10 +867,11 @@ elif st.session_state.step == 3:
         if st.session_state.get("_tx_pending_add"):
             from datetime import date as _date
             st.session_state.tx_rows.append({
-                "date":     _date.today().strftime("%d %b %Y"),
-                "name":     "",
-                "amount":   "",
-                "category": "Unknown",
+                "date":         _date.today().strftime("%d %b %Y"),
+                "name":         "",
+                "vendor_clean": "",
+                "amount":       "",
+                "category":     "Unknown",
             })
             st.session_state._tx_pending_add = False
             for k in [k for k in st.session_state if k.startswith("td_")]:
@@ -881,9 +895,11 @@ elif st.session_state.step == 3:
                               key=f"td_{i}_date", placeholder="DD MMM YYYY")
 
             with c_name:
-                st.text_input("Merchant", value=str(row.get("name","")),
+                # Show cleaned vendor name if available, fall back to raw name
+                display_name = row.get("vendor_clean") or row.get("name", "")
+                st.text_input("Vendor", value=str(display_name),
                               label_visibility="collapsed",
-                              key=f"td_{i}_name", placeholder="Merchant")
+                              key=f"td_{i}_name", placeholder="Vendor")
 
             with c_amt:
                 st.text_input("Amount", value=str(row.get("amount","")),
@@ -943,10 +959,12 @@ elif st.session_state.step == 3:
             # Sync widget state → tx_rows and flag charts to refresh
             _rows = st.session_state.tx_rows
             for _i in range(len(_rows)):
-                _rows[_i]["date"]     = st.session_state.get(f"td_{_i}_date",     _rows[_i].get("date",""))
-                _rows[_i]["name"]     = st.session_state.get(f"td_{_i}_name",     _rows[_i].get("name",""))
-                _rows[_i]["amount"]   = st.session_state.get(f"td_{_i}_amt",      _rows[_i].get("amount",""))
-                _rows[_i]["category"] = st.session_state.get(f"td_{_i}_cat",      _rows[_i].get("category","Unknown"))
+                _rows[_i]["date"]         = st.session_state.get(f"td_{_i}_date", _rows[_i].get("date",""))
+                # td_{i}_name widget shows the cleaned name — save back as vendor_clean
+                _rows[_i]["vendor_clean"] = st.session_state.get(f"td_{_i}_name", _rows[_i].get("vendor_clean",""))
+                _rows[_i]["name"]         = _rows[_i].get("name", _rows[_i]["vendor_clean"])
+                _rows[_i]["amount"]       = st.session_state.get(f"td_{_i}_amt",  _rows[_i].get("amount",""))
+                _rows[_i]["category"]     = st.session_state.get(f"td_{_i}_cat",  _rows[_i].get("category","Unknown"))
             st.session_state.tx_rows = _rows
             st.session_state._charts_dirty = False
 
@@ -1011,23 +1029,32 @@ elif st.session_state.step == 3:
                     )
                     show_pct = pie_mode == "Percentage (%)"
                     total_spend_abs = cat_totals.sum()
+                    # Group small slices (< 3%) into "Other" to avoid label clipping
+                    threshold = total_spend_abs * 0.03
+                    main_cats  = cat_totals[cat_totals >= threshold]
+                    other_sum  = cat_totals[cat_totals < threshold].sum()
+                    if other_sum > 0:
+                        import pandas as pd
+                        main_cats = pd.concat([main_cats,
+                                               pd.Series({"Other": other_sum})])
+
                     fig_pie = go.Figure(go.Pie(
-                        labels=cat_totals.index.tolist(),
-                        values=cat_totals.values.tolist(),
+                        labels=main_cats.index.tolist(),
+                        values=main_cats.values.tolist(),
                         marker=dict(
-                            colors=[CATEGORY_COLORS.get(c, "#6b7280") for c in cat_totals.index],
+                            colors=[CATEGORY_COLORS.get(c, "#6b7280") for c in main_cats.index],
                             line=dict(color="#0f0f13", width=2),
                         ),
                         hole=0.52,
                         hovertemplate="<b>%{label}</b><br>$%{value:,.2f}<br>%{percent}<extra></extra>",
                         texttemplate="%{label}<br>%{percent}" if show_pct else "%{label}<br>$%{value:,.0f}",
                         textposition="outside",
-                        pull=[0.03] * len(cat_totals),
+                        pull=[0.03] * len(main_cats),
                     ))
                     centre_text = f"${total_spend_abs:,.0f}" if not show_pct else "100%"
                     fig_pie.update_layout(
                         height=460,
-                        margin=dict(l=40, r=40, t=100, b=20),
+                        margin=dict(l=60, r=60, t=100, b=80),
                         paper_bgcolor="rgba(0,0,0,0)",
                         plot_bgcolor="rgba(0,0,0,0)",
                         font=dict(color="#c9c7c0", size=11, family="DM Sans"),
@@ -1045,7 +1072,10 @@ elif st.session_state.step == 3:
                     vtab1, vtab2 = st.tabs(["By value", "By charges"])
 
                     with vtab1:
-                        by_value = (spend_df.groupby("name")["amount_abs"]
+                        # Use vendor_clean for grouping if available
+                        vname_col = "vendor_clean" if "vendor_clean" in spend_df.columns else "name"
+                        spend_df["_vendor"] = spend_df[vname_col].fillna(spend_df["name"])
+                        by_value = (spend_df.groupby("_vendor")["amount_abs"]
                                     .sum().sort_values(ascending=False)
                                     .head(5).reset_index())
                         max_val = by_value["amount_abs"].max()
@@ -1053,8 +1083,8 @@ elif st.session_state.step == 3:
                         for rank, row in enumerate(by_value.itertuples(), 1):
                             bar_pct = int(row.amount_abs / max_val * 100)
                             color   = CATEGORY_COLORS.get(
-                                spend_df[spend_df["name"]==row.name]["category"].mode().iloc[0]
-                                if not spend_df[spend_df["name"]==row.name].empty else "Unknown",
+                                spend_df[spend_df["_vendor"]==row._vendor]["category"].mode().iloc[0]
+                                if not spend_df[spend_df["_vendor"]==row._vendor].empty else "Unknown",
                                 "#6b7280"
                             )
                             rows_html += f"""
@@ -1063,7 +1093,7 @@ elif st.session_state.step == 3:
                                           align-items:baseline;margin-bottom:5px">
                                 <span style="font-size:.85rem;color:#e8e6e1;
                                              white-space:nowrap;overflow:hidden;
-                                             text-overflow:ellipsis;max-width:65%">{row.name}</span>
+                                             text-overflow:ellipsis;max-width:65%">{row._vendor}</span>
                                 <span style="font-size:.85rem;font-weight:500;
                                              color:#e8e6e1;font-family:'DM Mono',monospace">
                                   ${row.amount_abs:,.2f}</span>
@@ -1076,7 +1106,7 @@ elif st.session_state.step == 3:
                         st.markdown(rows_html, unsafe_allow_html=True)
 
                     with vtab2:
-                        by_count = (spend_df.groupby("name")
+                        by_count = (spend_df.groupby("_vendor")
                                     .agg(charges=("amount_abs","count"),
                                          total=("amount_abs","sum"))
                                     .sort_values("charges", ascending=False)
@@ -1086,8 +1116,8 @@ elif st.session_state.step == 3:
                         for rank, row in enumerate(by_count.itertuples(), 1):
                             bar_pct = int(row.charges / max_count * 100)
                             color   = CATEGORY_COLORS.get(
-                                spend_df[spend_df["name"]==row.name]["category"].mode().iloc[0]
-                                if not spend_df[spend_df["name"]==row.name].empty else "Unknown",
+                                spend_df[spend_df["_vendor"]==row._vendor]["category"].mode().iloc[0]
+                                if not spend_df[spend_df["_vendor"]==row._vendor].empty else "Unknown",
                                 "#6b7280"
                             )
                             rows_html += f"""
@@ -1096,7 +1126,7 @@ elif st.session_state.step == 3:
                                           align-items:baseline;margin-bottom:5px">
                                 <span style="font-size:.85rem;color:#e8e6e1;
                                              white-space:nowrap;overflow:hidden;
-                                             text-overflow:ellipsis;max-width:65%">{row.name}</span>
+                                             text-overflow:ellipsis;max-width:65%">{row._vendor}</span>
                                 <span style="font-size:.75rem;color:#888">
                                   {row.charges} charge{'s' if row.charges!=1 else ''}
                                   &nbsp;·&nbsp;
