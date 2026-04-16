@@ -29,13 +29,27 @@ _, col, _ = st.columns([1, 2, 1])
 with col:
     msg_placeholder = st.empty()
 
-    with st.form("login_form"):
-        email    = st.text_input("Email address", placeholder="you@example.com")
-        password = st.text_input("Password", type="password", placeholder="••••••••")
-        submitted = st.form_submit_button("Sign in", type="primary",
-                                          use_container_width=True)
+    email    = st.text_input("Email address", placeholder="you@example.com",
+                              key="login_email")
+    password = st.text_input("Password", type="password", placeholder="••••••••",
+                              key="login_password")
+    signin   = st.button("Sign in", type="primary", use_container_width=True,
+                          key="login_btn")
 
-    if submitted:
+    # Press Enter to submit — clicks the Sign in button via JS
+    st.markdown("""
+    <script>
+    window.parent.document.addEventListener("keydown", function(e) {
+        if (e.key === "Enter") {
+            var btn = window.parent.document.querySelector(
+                'button[data-testid="baseButton-primary"]');
+            if (btn) btn.click();
+        }
+    });
+    </script>
+    """, unsafe_allow_html=True)
+
+    if signin:
         if not email or not password:
             msg_placeholder.markdown(
                 '<div class="auth-error">Please enter your email and password.</div>',
