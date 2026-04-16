@@ -344,8 +344,8 @@ with st.sidebar:
         render_page_b64.clear()
         st.rerun()
 
-    # Middle: Step progress (flex-grow pushes user section to bottom)
-    st.markdown("<div style='flex:1;padding-top:2rem'>", unsafe_allow_html=True)
+    # Middle: Step progress — pushed down 20% with top padding
+    st.markdown("<div style='padding-top:20vh'>", unsafe_allow_html=True)
     steps = [
         (1, "Upload statement"),
         (2, "Redact private info"),
