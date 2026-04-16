@@ -619,31 +619,24 @@ if st.session_state.step in (1, 2):
 
     # ── Upload area + info cards (hidden once PDF is loaded) ──────────────
     if not pdf_loaded:
-        st.markdown("### 1. Upload your bank statement")
+        up_col, info_col = st.columns([2, 1])
 
-    up_col, info_col = st.columns([2, 1]) if not pdf_loaded else (st.container(), None)
-
-    with (up_col if not pdf_loaded else st.container()):
-        if not pdf_loaded:
+        with up_col:
+            st.markdown("### 1. Upload your bank statement")
             st.markdown('<div class="info-box">Upload a PDF bank statement. You can redact sensitive information (account numbers, BSB, personal details) before the AI reads it.</div>', unsafe_allow_html=True)
-
-        uploaded = st.file_uploader(
-            "Upload PDF", type=["pdf"],
-            label_visibility="collapsed" if pdf_loaded else "visible",
-        )
-        if uploaded:
-            b = uploaded.read()
-            if b != st.session_state.pdf_bytes:
-                st.session_state.pdf_bytes = b
-                st.session_state.annotations = {}
-                st.session_state.pending = None
-                st.session_state.transactions = None
-                st.session_state.categorized = False
-                st.session_state.step = 2
-                render_page_b64.clear()
-                st.rerun()
-
-        if not pdf_loaded:
+            uploaded = st.file_uploader("Upload PDF", type=["pdf"],
+                                        label_visibility="visible")
+            if uploaded:
+                b = uploaded.read()
+                if b != st.session_state.pdf_bytes:
+                    st.session_state.pdf_bytes = b
+                    st.session_state.annotations = {}
+                    st.session_state.pending = None
+                    st.session_state.transactions = None
+                    st.session_state.categorized = False
+                    st.session_state.step = 2
+                    render_page_b64.clear()
+                    st.rerun()
             st.markdown("---")
             st.markdown('<p style="color:#555;font-size:.8rem;margin-bottom:8px">⚡ DEVELOPER SHORTCUT</p>', unsafe_allow_html=True)
             if st.button("📋 Load Demo Expenses", use_container_width=True):
@@ -654,7 +647,6 @@ if st.session_state.step in (1, 2):
                 st.session_state.step = 3
                 st.rerun()
 
-    if not pdf_loaded and info_col is not None:
         with info_col:
             st.markdown("### How it works")
             st.markdown("""<div class="card">
@@ -669,6 +661,22 @@ if st.session_state.step in (1, 2):
                 <h3>📊 Instant insights</h3>
                 <p>See spending by category with totals and a breakdown table.</p>
             </div>""", unsafe_allow_html=True)
+
+    # File uploader still needed when PDF is loaded (hidden label)
+    if pdf_loaded:
+        uploaded = st.file_uploader("Upload PDF", type=["pdf"],
+                                    label_visibility="collapsed")
+        if uploaded:
+            b = uploaded.read()
+            if b != st.session_state.pdf_bytes:
+                st.session_state.pdf_bytes = b
+                st.session_state.annotations = {}
+                st.session_state.pending = None
+                st.session_state.transactions = None
+                st.session_state.categorized = False
+                st.session_state.step = 2
+                render_page_b64.clear()
+                st.rerun()
 
 # ═══════════════════════════════════════════════════════════
 # STEP 3 — Results (auto-runs AI on arrival)
