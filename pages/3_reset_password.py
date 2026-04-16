@@ -3,6 +3,17 @@ from auth import get_supabase, is_logged_in, AUTH_CSS
 
 st.set_page_config(page_title="Reset Password — Expense AI", page_icon="💳", layout="centered")
 st.markdown(AUTH_CSS, unsafe_allow_html=True)
+st.markdown("""
+<style>
+div[data-testid="stFormSubmitButton"] button {
+    background-color: #f0c040 !important;
+    color: #0f0f13 !important;
+    border: none !important;
+    font-weight: 600 !important;
+    width: 100% !important;
+}
+[data-testid="InputInstructions"] { display: none !important; }
+</style>""", unsafe_allow_html=True)
 
 if is_logged_in():
     st.switch_page("frontend.py")
@@ -35,13 +46,18 @@ mode = "set_new" if (has_code or has_token or is_recovery) else "request"
 
 # ── Request mode — send reset email ───────────────────────────────────────────
 if mode == "request":
-    st.markdown("""
-    <div class="auth-card">
-      <div class="auth-logo">🔑</div>
-      <div class="auth-title">Reset your password</div>
-      <div class="auth-subtitle">We'll send a reset link to your email</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("""<div style="text-align:center;padding:48px 0 24px">
+  <div style="font-family:'DM Sans',sans-serif;font-size:2.4rem;font-weight:700;
+              font-style:italic;color:#f0c040;letter-spacing:.04em;margin-bottom:8px">
+    CATEGORIZ
+  </div>
+  <div style="font-size:1.1rem;font-weight:500;color:#e8e6e1;margin-bottom:4px">
+    Reset your password
+  </div>
+  <div style="font-size:.85rem;color:#666">
+    We'll send a reset link to your email
+  </div>
+</div>""", unsafe_allow_html=True)
 
     _, col, _ = st.columns([1, 2, 1])
     with col:
@@ -89,13 +105,18 @@ if mode == "request":
 
 # ── Set new password mode — arrived via email link ────────────────────────────
 else:
-    st.markdown("""
-    <div class="auth-card">
-      <div class="auth-logo">🔑</div>
-      <div class="auth-title">Set a new password</div>
-      <div class="auth-subtitle">Choose a strong password for your account</div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("""<div style="text-align:center;padding:48px 0 24px">
+  <div style="font-family:'DM Sans',sans-serif;font-size:2.4rem;font-weight:700;
+              font-style:italic;color:#f0c040;letter-spacing:.04em;margin-bottom:8px">
+    CATEGORIZ
+  </div>
+  <div style="font-size:1.1rem;font-weight:500;color:#e8e6e1;margin-bottom:4px">
+    Set a new password
+  </div>
+  <div style="font-size:.85rem;color:#666">
+    Choose a strong password for your account
+  </div>
+</div>""", unsafe_allow_html=True)
 
     _, col, _ = st.columns([1, 2, 1])
     with col:
