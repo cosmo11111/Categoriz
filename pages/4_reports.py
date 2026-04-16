@@ -39,6 +39,7 @@ div[data-testid="stExpander"] > div:last-child {
     border-radius:0 0 12px 12px !important;
     padding:16px !important;
 }
+  [data-testid="stSidebarNav"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
