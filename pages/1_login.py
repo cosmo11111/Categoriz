@@ -30,24 +30,42 @@ with col:
     msg_placeholder = st.empty()
 
     email    = st.text_input("Email address", placeholder="you@example.com",
-                              key="login_email")
+                              key="login_email", label_visibility="visible")
     password = st.text_input("Password", type="password", placeholder="••••••••",
-                              key="login_password")
+                              key="login_password", label_visibility="visible")
     signin   = st.button("Sign in", type="primary", use_container_width=True,
                           key="login_btn")
 
-    # Press Enter to submit — clicks the Sign in button via JS
-    st.markdown("""
-    <script>
-    window.parent.document.addEventListener("keydown", function(e) {
-        if (e.key === "Enter") {
-            var btn = window.parent.document.querySelector(
-                'button[data-testid="baseButton-primary"]');
-            if (btn) btn.click();
-        }
-    });
-    </script>
-    """, unsafe_allow_html=True)
+    # Wire Enter key to Sign in button and hide the hint text
+    import streamlit.components.v1 as _c
+    _c.html("""
+<script>
+(function() {
+  // Inject a script tag into the parent document so it runs in the main page
+  // context — not the sandboxed iframe context
+  var s = window.parent.document.createElement('script');
+  s.textContent = `
+    (function() {
+      if (window._loginEnterRegistered) return;
+      window._loginEnterRegistered = true;
+      document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter') return;
+        var tag = e.target.tagName.toLowerCase();
+        if (tag !== 'input') return;
+        var btn = document.querySelector('button[data-testid="baseButton-primary"]');
+        if (btn) { e.preventDefault(); btn.click(); }
+      });
+    })();
+  `;
+  window.parent.document.head.appendChild(s);
+
+  // Also hide the "Press Enter to submit" hint via parent CSS
+  var style = window.parent.document.createElement('style');
+  style.textContent = '[data-testid="InputInstructions"] { display:none !important; }';
+  window.parent.document.head.appendChild(style);
+})();
+</script>
+""", height=0)
 
     if signin:
         if not email or not password:
