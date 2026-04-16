@@ -43,6 +43,7 @@ section[data-testid="stSidebar"] * { color:#c9c7c0 !important; }
 }
 .usage-bar-bg { background:#1e1e28; border-radius:4px; height:6px; margin:8px 0; }
 .usage-bar { background:#f0c040; border-radius:4px; height:6px; transition:width .3s; }
+  [data-testid="stSidebarNav"] { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
