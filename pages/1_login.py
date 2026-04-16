@@ -27,13 +27,15 @@ st.markdown("""
 _, col, _ = st.columns([1, 2, 1])
 
 with col:
-    # Error / success placeholders
     msg_placeholder = st.empty()
 
-    email    = st.text_input("Email address", placeholder="you@example.com")
-    password = st.text_input("Password", type="password", placeholder="••••••••")
+    with st.form("login_form"):
+        email    = st.text_input("Email address", placeholder="you@example.com")
+        password = st.text_input("Password", type="password", placeholder="••••••••")
+        submitted = st.form_submit_button("Sign in", type="primary",
+                                          use_container_width=True)
 
-    if st.button("Sign in", type="primary"):
+    if submitted:
         if not email or not password:
             msg_placeholder.markdown(
                 '<div class="auth-error">Please enter your email and password.</div>',
