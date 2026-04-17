@@ -400,7 +400,7 @@ def save_report(user_id: str, label: str,
         report_id = report_res.data[0]["id"]
 
         # ── Insert line items (starter+ only, encrypted) ─────────────────────
-        if tier_required in ("starter", "unlimited"):
+        if tier_required in ("starter", "unlimited"):  # free tier saves summary only
             cipher = _get_cipher()
             items  = []
             for t in transactions:
