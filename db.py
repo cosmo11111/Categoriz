@@ -158,7 +158,7 @@ def load_reports(user_id: str) -> list[dict]:
     try:
         sb  = get_supabase()
         res = sb.table("expense_reports") \
-                .select("id, label, period_start, period_end, total_spend, total_income, category_totals, transaction_count, tier_required, created_at") \
+                .select("id, label, period_start, period_end, total_spend, total_income, category_totals, monthly_totals, top_vendors, transaction_count, tier_required, created_at") \
                 .eq("user_id", user_id) \
                 .order("created_at", desc=True) \
                 .execute()
@@ -167,37 +167,175 @@ def load_reports(user_id: str) -> list[dict]:
         return []
 
 
+def _parse_date(date_str: str):
+    """Parse a transaction date string to a datetime.date, return None if unparseable."""
+    from datetime import datetime
+    for fmt in ("%d %b %Y", "%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d %B %Y"):
+        try:
+            return datetime.strptime(str(date_str).strip(), fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _build_monthly_totals(transactions: list[dict]) -> dict:
+    """
+    Split spending transactions by calendar month.
+    Returns {"2026-03": {"Food & Dining": 120.00, ...}, "2026-04": {...}}
+    Works for cross-month statements. Uses transaction date for accurate split.
+    Falls back to proportional split if date is unparseable.
+    """
+    from datetime import date as _date
+    monthly: dict[str, dict[str, float]] = {}
+
+    parseable = []
+    unparseable = []
+    for t in transactions:
+        if float(t.get("amount", 0)) >= 0:
+            continue  # skip income
+        d = _parse_date(str(t.get("date", "")))
+        if d:
+            parseable.append((d, t))
+        else:
+            unparseable.append(t)
+
+    # Add parseable transactions to their month bucket
+    for d, t in parseable:
+        month_key = d.strftime("%Y-%m")
+        cat = t.get("category", "Unknown")
+        amt = abs(float(t["amount"]))
+        if month_key not in monthly:
+            monthly[month_key] = {}
+        monthly[month_key][cat] = round(
+            monthly[month_key].get(cat, 0) + amt, 2
+        )
+
+    # For unparseable dates distribute evenly across months already found
+    # (or put in a fallback bucket)
+    if unparseable:
+        if monthly:
+            keys = list(monthly.keys())
+            per_month_weight = 1 / len(keys)
+            for t in unparseable:
+                cat = t.get("category", "Unknown")
+                amt = abs(float(t["amount"]))
+                for key in keys:
+                    if key not in monthly:
+                        monthly[key] = {}
+                    monthly[key][cat] = round(
+                        monthly[key].get(cat, 0) + amt * per_month_weight, 2
+                    )
+        else:
+            monthly["unknown"] = {}
+            for t in unparseable:
+                cat = t.get("category", "Unknown")
+                amt = abs(float(t["amount"]))
+                monthly["unknown"][cat] = round(
+                    monthly["unknown"].get(cat, 0) + amt, 2
+                )
+
+    # Round all values
+    for mk in monthly:
+        for cat in monthly[mk]:
+            monthly[mk][cat] = round(monthly[mk][cat], 2)
+
+    return monthly
+
+
+def _build_top_vendors(transactions: list[dict], n: int = 3) -> list[dict]:
+    """
+    Return top N vendors by total spend.
+    Uses vendor_clean if available, falls back to raw name.
+    Returns [{"vendor": "Woolworths", "amount": 245.50, "category": "Groceries"}]
+    """
+    vendor_spend: dict[str, float] = {}
+    vendor_cat:   dict[str, str]   = {}
+
+    for t in transactions:
+        if float(t.get("amount", 0)) >= 0:
+            continue
+        raw   = t.get("name", "") or ""
+        clean = t.get("vendor_clean", "") or raw
+        if not clean or str(clean).lower() in ("nan", "none", "unknown", ""):
+            clean = raw
+        if not clean:
+            continue
+        amt = abs(float(t["amount"]))
+        vendor_spend[clean] = round(vendor_spend.get(clean, 0) + amt, 2)
+        if clean not in vendor_cat:
+            vendor_cat[clean] = t.get("category", "Unknown")
+
+    top = sorted(vendor_spend.items(), key=lambda x: x[1], reverse=True)[:n]
+    return [{"vendor": v, "amount": a, "category": vendor_cat.get(v, "Unknown")}
+            for v, a in top]
+
+
+def check_duplicate_report(user_id: str,
+                            period_start: str | None,
+                            period_end:   str | None) -> bool:
+    """
+    Return True if an existing report overlaps the given date range.
+    Used to warn the user before saving a duplicate.
+    """
+    if not period_start or not period_end:
+        return False
+    try:
+        sb  = get_supabase()
+        res = sb.table("expense_reports")                 .select("id, period_start, period_end")                 .eq("user_id", user_id)                 .execute()
+        existing = res.data or []
+        from datetime import datetime
+        def _d(s):
+            try: return datetime.strptime(s, "%Y-%m-%d").date()
+            except: return None
+        new_s = _d(period_start)
+        new_e = _d(period_end)
+        if not new_s or not new_e:
+            return False
+        for r in existing:
+            ex_s = _d(r.get("period_start", ""))
+            ex_e = _d(r.get("period_end",   ""))
+            if not ex_s or not ex_e:
+                continue
+            # Overlap: not (new ends before existing starts OR new starts after existing ends)
+            if not (new_e < ex_s or new_s > ex_e):
+                return True
+        return False
+    except Exception:
+        return False
+
+
 def save_report(user_id: str, label: str,
                 period_start: str | None, period_end: str | None,
                 transactions: list[dict],
                 tier_required: str = "starter") -> tuple[bool, str]:
     """
-    Save a labelled expense report and its line items.
+    Save a labelled expense report.
+    - All tiers: saves summary (category_totals, monthly_totals, top_vendors, metrics)
+    - Starter+:  also saves line_items for full transaction review
     transactions: list of dicts with keys date, name, vendor_clean, amount, category.
-    vendor_clean is the AI-normalised name (e.g. "Ampol").
-    name is the raw bank description (e.g. "AMPOL SUBIACO 44321F").
     No PDF content is ever stored.
     """
-    import json
     try:
         sb = get_supabase()
 
-        # Calculate totals from transactions
+        # ── Compute summary fields ────────────────────────────────────────────
         total_spend  = sum(float(t["amount"]) for t in transactions
-                           if float(t["amount"]) < 0)
+                           if float(t.get("amount", 0)) < 0)
         total_income = sum(float(t["amount"]) for t in transactions
-                           if float(t["amount"]) > 0)
+                           if float(t.get("amount", 0)) > 0)
 
-        # Build category_totals JSON from spending transactions
-        cat_totals: dict[str, float] = {}
+        cat_totals     = {}
         for t in transactions:
-            if float(t["amount"]) < 0:
+            if float(t.get("amount", 0)) < 0:
                 cat = t.get("category", "Unknown")
                 cat_totals[cat] = round(
                     cat_totals.get(cat, 0) + abs(float(t["amount"])), 2
                 )
 
-        # Insert the report header
+        monthly_totals = _build_monthly_totals(transactions)
+        top_vendors    = _build_top_vendors(transactions, n=3)
+
+        # ── Insert report header (all tiers) ──────────────────────────────────
         report_res = sb.table("expense_reports").insert({
             "user_id":           user_id,
             "label":             label.strip(),
@@ -206,30 +344,34 @@ def save_report(user_id: str, label: str,
             "total_spend":       round(total_spend,  2),
             "total_income":      round(total_income, 2),
             "category_totals":   cat_totals,
+            "monthly_totals":    monthly_totals,
+            "top_vendors":       top_vendors,
             "transaction_count": len(transactions),
             "tier_required":     tier_required,
         }).execute()
 
         report_id = report_res.data[0]["id"]
 
-        # Insert line items in one batch
-        items = []
-        for t in transactions:
-            raw_name    = t.get("name", "") or ""
-            clean_name  = t.get("vendor_clean", "") or raw_name
-            is_redacted = raw_name.strip().lower() in ("", "unknown")
-            items.append({
-                "report_id":        report_id,
-                "user_id":          user_id,
-                "date":             str(t.get("date", "")),
-                "vendor_name":      raw_name    if not is_redacted else None,
-                "vendor_name_clean": clean_name if not is_redacted else None,
-                "amount":           round(float(t["amount"]), 2),
-                "category":         t.get("category", "Unknown"),
-                "is_redacted":      is_redacted,
-            })
+        # ── Insert line items (starter+ only) ────────────────────────────────
+        if tier_required in ("starter", "unlimited"):
+            items = []
+            for t in transactions:
+                raw_name    = t.get("name", "") or ""
+                clean_name  = t.get("vendor_clean", "") or raw_name
+                is_redacted = raw_name.strip().lower() in ("", "unknown")
+                items.append({
+                    "report_id":         report_id,
+                    "user_id":           user_id,
+                    "date":              str(t.get("date", "")),
+                    "vendor_name":       raw_name    if not is_redacted else None,
+                    "vendor_name_clean": clean_name  if not is_redacted else None,
+                    "amount":            round(float(t["amount"]), 2),
+                    "category":          t.get("category", "Unknown"),
+                    "is_redacted":       is_redacted,
+                })
+            if items:
+                sb.table("line_items").insert(items).execute()
 
-        sb.table("line_items").insert(items).execute()
         load_reports.clear()
         return True, ""
 
