@@ -115,9 +115,11 @@ if "pending_delete_report" in st.session_state:
 
 # ── Handle "view full report" ──────────────────────────────────────────────────
 if st.session_state.get("_view_report_id"):
-    rid = st.session_state.pop("_view_report_id")
-    items = load_report_items(rid)
+    rid        = st.session_state.pop("_view_report_id")
+    rid_report = next((r for r in load_reports(uid) if r["id"] == rid), {})
+    items      = load_report_items(rid)
     if items:
+        import hashlib as _hl, json as _json
         transactions = []
         for it in items:
             transactions.append({
@@ -127,12 +129,23 @@ if st.session_state.get("_view_report_id"):
                 "amount":       float(it.get("amount") or 0),
                 "category":     it.get("category", "Unknown"),
             })
-        st.session_state.transactions    = transactions
-        st.session_state.categorized     = True
-        st.session_state.step            = 3
-        st.session_state.tx_rows         = None
-        st.session_state.tx_rows_source  = None
+
+        # Pre-populate insight from saved report so AI isn't re-called
+        saved_insight = rid_report.get("ai_insight")
+        if saved_insight:
+            _key = "ai_insight_" + _hl.md5(
+                _json.dumps(transactions, default=str, sort_keys=True).encode()
+            ).hexdigest()
+            st.session_state[_key]             = saved_insight
+            st.session_state["_insight_to_save"] = saved_insight
+
+        st.session_state.transactions       = transactions
+        st.session_state.categorized        = True
+        st.session_state.step               = 3
+        st.session_state.tx_rows            = None
+        st.session_state.tx_rows_source     = None
         st.session_state.redacted_pdf_bytes = None
+        st.session_state._is_demo           = False
         st.switch_page("frontend.py")
 
 reports = load_reports(uid)
