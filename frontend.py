@@ -463,6 +463,8 @@ if user:
                 st.switch_page("pages/5_pricing.py")
         if st.button("📂 Saved Reports", use_container_width=True):
             st.switch_page("pages/4_reports.py")
+        if st.button("⚙ Settings", use_container_width=True):
+            st.switch_page("pages/6_settings.py")
         if st.button("Sign out", use_container_width=True):
             try:
                 get_supabase().auth.sign_out()
