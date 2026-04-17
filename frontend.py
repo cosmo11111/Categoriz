@@ -344,7 +344,7 @@ def make_figure(b64, img_w, img_h, annotations, pending, zm):
 
 def categorize_with_gemini(text, all_categories: dict, vendor_rules: list):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel("gemini-3.1-flash-lite-preview")
+    model = genai.GenerativeModel("gemini-2.5-flash-preview-04-17")
     cat_list = ", ".join(all_categories.keys())
     prompt = f"""Extract ALL transactions from this bank statement text.
 Return ONLY a JSON array. Each object must have exactly these keys:
@@ -745,7 +745,15 @@ elif st.session_state.step == 3:
         if uid:
             allowed, reason = can_analyse(uid)
             if not allowed:
-                st.error(f"🔒 {reason}")
+                # Use markdown instead of st.error to avoid LaTeX rendering of $ signs
+                reason_display = reason.replace("(9/mo)", "($9/mo)").replace("(29/mo)", "($29/mo)")
+                st.markdown(f"""
+                <div style="background:#3b1a1a;border:1px solid #6b2d2d;border-radius:8px;
+                            padding:12px 16px;margin-bottom:16px;font-family:'DM Sans',sans-serif;
+                            font-size:.9rem;color:#f87171">
+                  🔒 {reason_display}
+                </div>
+                """, unsafe_allow_html=True)
                 profile = get_profile(uid)
                 tier    = profile.get("subscription_tier", "free_trial")
                 used    = profile.get("analyses_used", 0)
@@ -1066,7 +1074,7 @@ elif st.session_state.step == 3:
                 try:
                     import google.generativeai as _genai
                     _genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                    _imodel = _genai.GenerativeModel("gemini-3.1-flash-lite-preview")
+                    _imodel = _genai.GenerativeModel("gemini-2.5-flash-preview-04-17")
                     _iprompt = f"""You are a personal finance assistant. Given this spending summary, provide 1-2 sentences of genuinely useful insight. Focus on something specific and interesting — a pattern, a standout category, a vendor worth noticing, or a spend/income relationship. Be conversational and non-judgmental. Do not restate obvious totals. Do not use the word "great".
 
 Total spend: ${abs(total_spend):,.2f}
