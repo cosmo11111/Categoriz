@@ -18,119 +18,127 @@ div[data-testid="stFormSubmitButton"] button {
 if is_logged_in():
     st.switch_page("frontend.py")
 
-params = st.query_params
-
-has_code  = "code"  in params
-has_token = "token" in params
-is_recovery = params.get("type") == "recovery"
-
-mode = "set_new" if (has_code or has_token or is_recovery) else "request"
-
 WORDMARK = """<div style="text-align:center;padding:48px 0 24px">
   <div style="font-family:'DM Sans',sans-serif;font-size:2.4rem;font-weight:700;
               font-style:italic;color:#f0c040;letter-spacing:.04em;margin-bottom:8px">
     CATEGORIZ
   </div>"""
 
-# ── Request mode ──────────────────────────────────────────────────────────────
+# ── Detect mode ────────────────────────────────────────────────────────────────
+# mode = "enter_code" if user has been sent a code (no URL params yet)
+# mode = "set_new"    if user has verified their code
+params = st.query_params
+
+if st.session_state.get("reset_verified"):
+    mode = "set_new"
+else:
+    mode = "request"
+
+# ── Request mode — collect email, send code ───────────────────────────────────
 if mode == "request":
     st.markdown(WORDMARK + """
   <div style="font-size:1.1rem;font-weight:500;color:#e8e6e1;margin-bottom:4px">
     Reset your password
   </div>
-  <div style="font-size:.85rem;color:#666">We'll send a reset link to your email</div>
+  <div style="font-size:.85rem;color:#666">
+    We'll email you a 6-digit code
+  </div>
 </div>""", unsafe_allow_html=True)
 
     _, col, _ = st.columns([1, 2, 1])
     with col:
         msg = st.empty()
-        email = st.text_input("Email address", placeholder="you@example.com")
-        if st.button("Send reset link", type="primary"):
-            if not email.strip():
-                msg.markdown('<div class="auth-error">Please enter your email address.</div>',
-                             unsafe_allow_html=True)
-            else:
-                try:
-                    sb  = get_supabase()
-                    app = st.secrets.get("APP_URL", "").rstrip("/")
-                    sb.auth.reset_password_email(
-                        email.strip(),
-                        options={"redirect_to": f"{app}/reset_password"},
-                    )
+
+        if not st.session_state.get("reset_code_sent"):
+            # Step 1 — enter email
+            with st.form("email_form", border=False):
+                email_input = st.text_input("Email address",
+                                            placeholder="you@example.com")
+                submitted = st.form_submit_button("Send code",
+                                                   use_container_width=True)
+            if submitted:
+                if not email_input.strip():
                     msg.markdown(
-                        '<div class="auth-success">✅ If that email is registered, '
-                        "you'll receive a reset link shortly. Check your spam folder too.</div>",
-                        unsafe_allow_html=True,
-                    )
-                except Exception as e:
-                    msg.markdown(f'<div class="auth-error">Something went wrong: {e}</div>',
-                                 unsafe_allow_html=True)
+                        '<div class="auth-error">Please enter your email address.</div>',
+                        unsafe_allow_html=True)
+                else:
+                    try:
+                        sb  = get_supabase()
+                        app = st.secrets.get("APP_URL", "").rstrip("/")
+                        sb.auth.reset_password_email(
+                            email_input.strip(),
+                            options={"redirect_to": f"{app}/reset_password"},
+                        )
+                        st.session_state.reset_email = email_input.strip()
+                        st.session_state.reset_code_sent = True
+                        st.rerun()
+                    except Exception as e:
+                        msg.markdown(
+                            f'<div class="auth-error">Something went wrong: {e}</div>',
+                            unsafe_allow_html=True)
+        else:
+            # Step 2 — enter the 6-digit code from email
+            saved_email = st.session_state.get("reset_email", "")
+            st.markdown(
+                f"<p style='color:#888;font-size:.85rem;margin-bottom:8px'>"
+                f"Enter the 6-digit code sent to "
+                f"<b style='color:#e8e6e1'>{saved_email}</b></p>",
+                unsafe_allow_html=True,
+            )
+            with st.form("code_form", border=False):
+                code_input = st.text_input("6-digit code",
+                                           placeholder="123456",
+                                           max_chars=6)
+                submitted = st.form_submit_button("Verify code",
+                                                   use_container_width=True)
+            if submitted:
+                if not code_input.strip():
+                    msg.markdown(
+                        '<div class="auth-error">Please enter the code from your email.</div>',
+                        unsafe_allow_html=True)
+                else:
+                    try:
+                        sb = get_supabase()
+                        sb.auth.verify_otp({
+                            "email": saved_email,
+                            "token": code_input.strip(),
+                            "type":  "recovery",
+                        })
+                        st.session_state.reset_verified = True
+                        st.session_state.reset_code_sent = False
+                        st.rerun()
+                    except Exception as e:
+                        msg.markdown(
+                            f'<div class="auth-error">Invalid or expired code: {e}</div>',
+                            unsafe_allow_html=True)
+
+            st.markdown(
+                "<p style='font-size:.8rem;color:#555;margin-top:8px'>"
+                "Didn't receive it? Check your spam folder or "
+                "<a href='/3_reset_password' target='_self' style='color:#888'>"
+                "try again</a>.</p>",
+                unsafe_allow_html=True,
+            )
 
         st.markdown('<hr class="auth-divider">', unsafe_allow_html=True)
-        st.markdown('<div class="auth-link">Remembered it? '
-                    '<a href="/1_login" target="_self">Back to sign in</a></div>',
-                    unsafe_allow_html=True)
+        st.markdown(
+            '<div class="auth-link">Remembered it? '
+            '<a href="/1_login" target="_self">Back to sign in</a></div>',
+            unsafe_allow_html=True,
+        )
 
-# ── Set new password mode ─────────────────────────────────────────────────────
+# ── Set new password mode — code verified ─────────────────────────────────────
 else:
     st.markdown(WORDMARK + """
   <div style="font-size:1.1rem;font-weight:500;color:#e8e6e1;margin-bottom:4px">
     Set a new password
   </div>
-  <div style="font-size:.85rem;color:#666">Choose a strong password for your account</div>
+  <div style="font-size:.85rem;color:#666">Choose a strong password</div>
 </div>""", unsafe_allow_html=True)
-
-    # Try to verify the token — only once, keyed to the token value itself
-    # so a fresh link always re-attempts even if a previous one failed
-    _token_key = f"reset_verified_{params.get('token','')[:16]}"
-
-    if _token_key not in st.session_state:
-        sb = get_supabase()
-        _verified = False
-        _err = None
-
-        if has_code:
-            try:
-                sb.auth.exchange_code_for_session({"auth_code": params["code"]})
-                _verified = True
-            except Exception as ex:
-                _err = str(ex)
-
-        if not _verified and has_token and is_recovery:
-            _email = params.get("email", "")
-            if _email:
-                try:
-                    sb.auth.verify_otp({
-                        "email": _email,
-                        "token": params["token"],
-                        "type":  "recovery",
-                    })
-                    _verified = True
-                    st.session_state.reset_email = _email
-                except Exception as ex:
-                    _err = str(ex)
-
-        st.session_state[_token_key] = _verified
-        st.session_state["reset_verify_err"] = _err
-
-    _verified = st.session_state.get(_token_key, False)
-    _err      = st.session_state.get("reset_verify_err")
 
     _, col, _ = st.columns([1, 2, 1])
     with col:
         msg = st.empty()
-
-        if not _verified:
-            st.markdown(
-                f'<div class="auth-error" style="margin-bottom:16px">'
-                f'⚠️ This reset link has expired or is invalid'
-                f'{": " + _err if _err else ""}.<br>'
-                f'<a href="/3_reset_password" target="_self" style="color:#f87171">'
-                f'Request a new one</a>.</div>',
-                unsafe_allow_html=True,
-            )
-            st.stop()
-
         saved_email = st.session_state.get("reset_email", "")
         if saved_email:
             st.markdown(
@@ -166,13 +174,12 @@ else:
                         'Sign in</a></div>',
                         unsafe_allow_html=True,
                     )
-                    st.query_params.clear()
-                    for k in [_token_key, "reset_email", "reset_verify_err"]:
+                    for k in ["reset_verified", "reset_email",
+                              "reset_code_sent"]:
                         st.session_state.pop(k, None)
+                    st.query_params.clear()
                 except Exception as e:
                     msg.markdown(
-                        f'<div class="auth-error">Could not update password: {e}<br>'
-                        '<a href="/3_reset_password" target="_self" style="color:#f87171">'
-                        'Request a new link</a>.</div>',
+                        f'<div class="auth-error">Could not update password: {e}</div>',
                         unsafe_allow_html=True,
                     )
