@@ -387,9 +387,10 @@ with st.sidebar:
         for k in ["step","pdf_bytes","redacted_pdf_bytes","annotations",
                   "pending","page_num","transactions","categorized",
                   "tx_rows","tx_rows_source","_tx_pending_delete","_tx_pending_add",
-                  "_is_demo","_insight_to_save"]:
+                  "_is_demo","_insight_to_save","_insight_error"]:
             st.session_state.pop(k, None)
-        for k in [k for k in st.session_state if k.startswith("td_")]:
+        for k in [k for k in st.session_state if k.startswith("td_")
+                  or k.startswith("ai_insight_")]:
             del st.session_state[k]
         render_page_b64.clear()
         st.rerun()
@@ -1054,7 +1055,13 @@ elif st.session_state.step == 3:
             _top_v = [{"vendor": k, "amount": round(v, 2)} for k, v in _tv.items()]
 
         if _is_paid_insight and not _is_demo:
-            _insight_key = f"ai_insight_{id(df_edited)}"
+            # Key insight to the stable transaction hash — not df memory address
+            # This ensures the API is called once per analysis, not every rerun
+            import hashlib as _hl
+            _insight_key = "ai_insight_" + _hl.md5(
+                json.dumps(st.session_state.get("transactions", []),
+                           default=str, sort_keys=True).encode()
+            ).hexdigest()
             if _insight_key not in st.session_state:
                 try:
                     import google.generativeai as _genai
