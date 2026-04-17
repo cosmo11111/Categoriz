@@ -1,7 +1,7 @@
 import streamlit as st
 from auth import get_supabase, is_logged_in, AUTH_CSS
 
-st.set_page_config(page_title="Reset Password — Expense AI", page_icon="💳", layout="centered")
+st.set_page_config(page_title="Reset Password — Categoriz", page_icon="💳", layout="centered")
 st.markdown(AUTH_CSS, unsafe_allow_html=True)
 st.markdown("""
 <style>
@@ -20,175 +20,154 @@ if is_logged_in():
 
 params = st.query_params
 
-# ── Detect mode ────────────────────────────────────────────────────────────────
-# Supabase PKCE flow sends ?code=...
-# Supabase magic link sends #access_token=... (fragment — Streamlit can't read)
-# We also check for ?token= and ?type=recovery as fallbacks
-has_code     = "code" in params
-has_token    = "token" in params
-is_recovery  = params.get("type") == "recovery"
+has_code  = "code"  in params
+has_token = "token" in params
+is_recovery = params.get("type") == "recovery"
 
 mode = "set_new" if (has_code or has_token or is_recovery) else "request"
 
-# ── Request mode — send reset email ───────────────────────────────────────────
-if mode == "request":
-    st.markdown("""<div style="text-align:center;padding:48px 0 24px">
+WORDMARK = """<div style="text-align:center;padding:48px 0 24px">
   <div style="font-family:'DM Sans',sans-serif;font-size:2.4rem;font-weight:700;
               font-style:italic;color:#f0c040;letter-spacing:.04em;margin-bottom:8px">
     CATEGORIZ
-  </div>
+  </div>"""
+
+# ── Request mode ──────────────────────────────────────────────────────────────
+if mode == "request":
+    st.markdown(WORDMARK + """
   <div style="font-size:1.1rem;font-weight:500;color:#e8e6e1;margin-bottom:4px">
     Reset your password
   </div>
-  <div style="font-size:.85rem;color:#666">
-    We'll send a reset link to your email
-  </div>
+  <div style="font-size:.85rem;color:#666">We'll send a reset link to your email</div>
 </div>""", unsafe_allow_html=True)
 
     _, col, _ = st.columns([1, 2, 1])
     with col:
-        msg_placeholder = st.empty()
+        msg = st.empty()
         email = st.text_input("Email address", placeholder="you@example.com")
-
         if st.button("Send reset link", type="primary"):
             if not email.strip():
-                msg_placeholder.markdown(
-                    '<div class="auth-error">Please enter your email address.</div>',
-                    unsafe_allow_html=True,
-                )
+                msg.markdown('<div class="auth-error">Please enter your email address.</div>',
+                             unsafe_allow_html=True)
             else:
                 try:
                     sb  = get_supabase()
                     app = st.secrets.get("APP_URL", "").rstrip("/")
-
-                    # Use the full Streamlit page path as redirect
-                    # Supabase will append ?code=... to this URL
-                    redirect = f"{app}/reset_password"
-
                     sb.auth.reset_password_email(
                         email.strip(),
-                        options={"redirect_to": redirect},
+                        options={"redirect_to": f"{app}/reset_password"},
                     )
-                    msg_placeholder.markdown(
-                        '<div class="auth-success">'
-                        "✅ If that email is registered, you'll receive a reset link shortly. "
-                        'Check your spam folder too.'
-                        '</div>',
+                    msg.markdown(
+                        '<div class="auth-success">✅ If that email is registered, '
+                        "you'll receive a reset link shortly. Check your spam folder too.</div>",
                         unsafe_allow_html=True,
                     )
                 except Exception as e:
-                    msg_placeholder.markdown(
-                        f'<div class="auth-error">Something went wrong: {e}</div>',
-                        unsafe_allow_html=True,
-                    )
+                    msg.markdown(f'<div class="auth-error">Something went wrong: {e}</div>',
+                                 unsafe_allow_html=True)
 
         st.markdown('<hr class="auth-divider">', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="auth-link">Remembered it? '
-            '<a href="/1_login" target="_self">Back to sign in</a></div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown('<div class="auth-link">Remembered it? '
+                    '<a href="/1_login" target="_self">Back to sign in</a></div>',
+                    unsafe_allow_html=True)
 
-# ── Set new password mode — arrived via email link ────────────────────────────
+# ── Set new password mode ─────────────────────────────────────────────────────
 else:
-    st.markdown("""<div style="text-align:center;padding:48px 0 24px">
-  <div style="font-family:'DM Sans',sans-serif;font-size:2.4rem;font-weight:700;
-              font-style:italic;color:#f0c040;letter-spacing:.04em;margin-bottom:8px">
-    CATEGORIZ
-  </div>
+    st.markdown(WORDMARK + """
   <div style="font-size:1.1rem;font-weight:500;color:#e8e6e1;margin-bottom:4px">
     Set a new password
   </div>
-  <div style="font-size:.85rem;color:#666">
-    Choose a strong password for your account
-  </div>
+  <div style="font-size:.85rem;color:#666">Choose a strong password for your account</div>
 </div>""", unsafe_allow_html=True)
 
-    # ── Exchange token for session immediately on page load ───────────────────
-    # Supabase invalidates the OTP token quickly — we must verify it as soon
-    # as the page loads and store the session, then use that session to update.
+    # Exchange the code/token for a session exactly once per page load.
+    # Store the result in session_state so Streamlit reruns don't re-consume it.
     if "reset_session_verified" not in st.session_state:
-        try:
-            sb    = get_supabase()
-            token = params.get("token","")
-            email_param = params.get("email","")
-            # Try verify_otp to establish a session
-            res = sb.auth.verify_otp({
-                "email": email_param,
-                "token": token,
-                "type":  "recovery",
-            })
-            st.session_state.reset_session_verified = True
-            st.session_state.reset_email = email_param
-        except Exception:
-            # Token may need email from user — fall through to form
-            st.session_state.reset_session_verified = False
+        sb = get_supabase()
+        verified = False
+
+        # PKCE flow — ?code=...
+        if has_code:
+            try:
+                sb.auth.exchange_code_for_session({"auth_code": params["code"]})
+                verified = True
+            except Exception:
+                pass
+
+        # Legacy OTP flow — ?token=...&type=recovery
+        if not verified and has_token and is_recovery:
+            try:
+                email_param = params.get("email", "")
+                sb.auth.verify_otp({
+                    "email": email_param,
+                    "token": params["token"],
+                    "type":  "recovery",
+                })
+                verified = True
+                st.session_state.reset_email = email_param
+            except Exception:
+                pass
+
+        st.session_state.reset_session_verified = verified
 
     _, col, _ = st.columns([1, 2, 1])
     with col:
-        msg_placeholder = st.empty()
-        # Only show email field if we couldn't auto-verify
-        if not st.session_state.get("reset_session_verified"):
-            email = st.text_input("Email address", placeholder="you@example.com")
-        else:
-            email = st.session_state.get("reset_email", "")
+        msg = st.empty()
+        verified = st.session_state.get("reset_session_verified", False)
+
+        if not verified:
             st.markdown(
-                f"<p style='color:#888;font-size:.85rem;margin-bottom:8px'>"
-                f"Resetting password for <b style='color:#e8e6e1'>{email}</b></p>",
+                '<div class="auth-error" style="margin-bottom:16px">'
+                '⚠️ This reset link has expired or is invalid. '
+                '<a href="/3_reset_password" target="_self" style="color:#f87171">'
+                'Request a new one</a>.</div>',
                 unsafe_allow_html=True,
             )
-        new_password = st.text_input("New password", type="password",
-                                     placeholder="At least 8 characters")
-        confirm      = st.text_input("Confirm password", type="password",
-                                     placeholder="••••••••")
+            st.stop()
 
-        if st.button("Update password", type="primary"):
-            if not st.session_state.get("reset_session_verified") and not email.strip():
-                msg_placeholder.markdown(
-                    '<div class="auth-error">Please enter your email address.</div>',
-                    unsafe_allow_html=True,
-                )
-            elif len(new_password) < 8:
-                msg_placeholder.markdown(
+        saved_email = st.session_state.get("reset_email", "")
+        if saved_email:
+            st.markdown(
+                f"<p style='color:#888;font-size:.85rem;margin-bottom:8px'>"
+                f"Resetting password for <b style='color:#e8e6e1'>{saved_email}</b></p>",
+                unsafe_allow_html=True,
+            )
+
+        with st.form("reset_form", border=False):
+            new_password = st.text_input("New password", type="password",
+                                         placeholder="At least 8 characters")
+            confirm      = st.text_input("Confirm password", type="password",
+                                         placeholder="••••••••")
+            submitted    = st.form_submit_button("Update password",
+                                                  use_container_width=True)
+
+        if submitted:
+            if len(new_password) < 8:
+                msg.markdown(
                     '<div class="auth-error">Password must be at least 8 characters.</div>',
-                    unsafe_allow_html=True,
-                )
+                    unsafe_allow_html=True)
             elif new_password != confirm:
-                msg_placeholder.markdown(
+                msg.markdown(
                     '<div class="auth-error">Passwords do not match.</div>',
-                    unsafe_allow_html=True,
-                )
+                    unsafe_allow_html=True)
             else:
                 try:
                     sb = get_supabase()
-
-                    if not st.session_state.get("reset_session_verified"):
-                        # Fallback: try verify with user-provided email
-                        sb.auth.verify_otp({
-                            "email": email.strip(),
-                            "token": params.get("token",""),
-                            "type":  "recovery",
-                        })
-
                     sb.auth.update_user({"password": new_password})
-
-                    msg_placeholder.markdown(
-                        '<div class="auth-success">'
-                        '✅ Password updated! '
-                        '<a href="/1_login" target="_self" style="color:#34d399">Sign in</a>'
-                        '</div>',
+                    msg.markdown(
+                        '<div class="auth-success">✅ Password updated! '
+                        '<a href="/1_login" target="_self" style="color:#34d399">'
+                        'Sign in</a></div>',
                         unsafe_allow_html=True,
                     )
                     st.query_params.clear()
-                    # Clear reset session so it doesn't persist
                     st.session_state.pop("reset_session_verified", None)
                     st.session_state.pop("reset_email", None)
-
                 except Exception as e:
-                    msg_placeholder.markdown(
+                    msg.markdown(
                         f'<div class="auth-error">Could not update password: {e}<br>'
-                        'The reset link may have expired — '
+                        'The session may have expired — '
                         '<a href="/3_reset_password" target="_self" style="color:#f87171">'
-                        'request a new one</a>.</div>',
+                        'request a new link</a>.</div>',
                         unsafe_allow_html=True,
                     )
