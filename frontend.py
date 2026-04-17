@@ -344,7 +344,7 @@ def make_figure(b64, img_w, img_h, annotations, pending, zm):
 
 def categorize_with_gemini(text, all_categories: dict, vendor_rules: list):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel("gemini-3.1-flash-lite-preview")
+    model = genai.GenerativeModel("gemini-2.5-flash-preview-04-17")
     cat_list = ", ".join(all_categories.keys())
     prompt = f"""Extract ALL transactions from this bank statement text.
 Return ONLY a JSON array. Each object must have exactly these keys:
@@ -1066,7 +1066,7 @@ elif st.session_state.step == 3:
                 try:
                     import google.generativeai as _genai
                     _genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                    _imodel = _genai.GenerativeModel("gemini-3.1-flash-lite-preview")
+                    _imodel = _genai.GenerativeModel("gemini-2.5-flash-preview-04-17")
                     _iprompt = f"""You are a personal finance assistant. Given this spending summary, provide 1-2 sentences of genuinely useful insight. Focus on something specific and interesting — a pattern, a standout category, a vendor worth noticing, or a spend/income relationship. Be conversational and non-judgmental. Do not restate obvious totals. Do not use the word "great".
 
 Total spend: ${abs(total_spend):,.2f}
@@ -1436,7 +1436,9 @@ Top vendors: {_top_v}"""
                         from db import get_profile as _gp
                         _profile = _gp(uid)
                         _tier    = _profile.get("subscription_tier", "free_trial")
-                        _tier_req = "free_trial" if _tier == "free_trial" else "starter"
+                        # Map subscription tier to tier_required value
+                        # free_trial users can save summaries, paid users get line items too
+                        _tier_req = "free" if _tier == "free_trial" else _tier
 
                         ok, err = save_report(
                             uid,
