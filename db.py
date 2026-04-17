@@ -513,9 +513,9 @@ def can_analyse(uid: str) -> tuple[bool, str]:
     if tier == "free_trial":
         if used >= 3:
             return False, (
-                f"You've used all 3 free analyses. "
-                f"Upgrade to Starter ($9/mo) for 10 analyses/month "
-                f"or Unlimited ($29/mo) for unlimited access."
+                "You've used all 3 free analyses. "
+                "Upgrade to Starter (9/mo) for 10 analyses/month "
+                "or Unlimited (29/mo) for unlimited access."
             )
         return True, ""
 
@@ -523,8 +523,8 @@ def can_analyse(uid: str) -> tuple[bool, str]:
         if used >= limit:
             return False, (
                 f"You've used all {limit} analyses this month. "
-                f"Upgrade to Unlimited ($29/mo) for unlimited access, "
-                f"or wait until your plan resets next month."
+                "Upgrade to Unlimited (29/mo) for unlimited access, "
+                "or wait until your plan resets next month."
             )
         return True, ""
 
