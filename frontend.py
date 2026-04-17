@@ -344,7 +344,7 @@ def make_figure(b64, img_w, img_h, annotations, pending, zm):
 
 def categorize_with_gemini(text, all_categories: dict, vendor_rules: list):
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash-preview-04-17")
     cat_list = ", ".join(all_categories.keys())
     prompt = f"""Extract ALL transactions from this bank statement text.
 Return ONLY a JSON array. Each object must have exactly these keys:
@@ -1059,7 +1059,7 @@ elif st.session_state.step == 3:
                 try:
                     import google.generativeai as _genai
                     _genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-                    _imodel = _genai.GenerativeModel("gemini-3-flash-preview")
+                    _imodel = _genai.GenerativeModel("gemini-2.5-flash-preview-04-17")
                     _iprompt = f"""You are a personal finance assistant. Given this spending summary, provide 1-2 sentences of genuinely useful insight. Focus on something specific and interesting — a pattern, a standout category, a vendor worth noticing, or a spend/income relationship. Be conversational and non-judgmental. Do not restate obvious totals. Do not use the word "great".
 
 Total spend: ${abs(total_spend):,.2f}
@@ -1069,10 +1069,13 @@ Category breakdown: {_cat_totals_dict}
 Top vendors: {_top_v}"""
                     _iresp = _imodel.generate_content(_iprompt)
                     st.session_state[_insight_key] = _iresp.text.strip()
-                except Exception:
+                except Exception as _insight_err:
                     st.session_state[_insight_key] = None
+                    st.session_state["_insight_error"] = str(_insight_err)
 
             _insight_text = st.session_state.get(_insight_key)
+            if not _insight_text and st.session_state.get("_insight_error"):
+                _insight_placeholder.caption(f"⚠️ Insight unavailable: {st.session_state['_insight_error']}")
             if _insight_text:
                 # Cache for saving with report
                 st.session_state["_insight_to_save"] = _insight_text
