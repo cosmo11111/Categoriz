@@ -216,16 +216,6 @@ with col3:
 
 # ── Stripe Checkout redirect ────────────────────────────────────────────────────
 # Triggered on next rerun after button click above
-# Render checkout link button if URL is ready
-if st.session_state.get("_checkout_url"):
-    url = st.session_state.pop("_checkout_url")
-    st.markdown(
-        "<p style='color:#888;font-size:.9rem;margin-bottom:8px'>Ready to checkout:</p>",
-        unsafe_allow_html=True
-    )
-    st.link_button("Continue to Stripe →", url, type="primary", use_container_width=True)
-    st.stop()
-
 if st.session_state.get("_checkout_tier"):
     chosen_tier = st.session_state.pop("_checkout_tier")
 
@@ -254,9 +244,14 @@ if st.session_state.get("_checkout_tier"):
             customer_email=email,
             metadata={"uid": uid, "tier": chosen_tier},
         )
-        # Store URL and rerun so st.link_button can render cleanly
-        st.session_state._checkout_url = checkout.url
-        st.rerun()
+        # Show spinner then redirect via meta refresh — works inside Streamlit iframe
+        st.markdown(f"""
+        <meta http-equiv="refresh" content="0;url={checkout.url}">
+        <p style="color:#888;font-size:.9rem;text-align:center;padding:20px 0">
+            Redirecting to Stripe checkout...
+        </p>
+        """, unsafe_allow_html=True)
+        st.stop()
     except ImportError:
         st.error("stripe package not installed. Run: pip install stripe")
     except Exception as e:
