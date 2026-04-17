@@ -27,6 +27,13 @@ DEFAULT_CATEGORY_COLORS = {
     "Travel":         "#fb923c",
     "Subscriptions":  "#e879f9",
     "Income":         "#4ade80",
+    "Housing":        "#f87171",
+    "Transfers":      "#64748b",
+    "Education":      "#38bdf8",
+    "Groceries":      "#fbbf24",
+    "Personal Care":  "#c084fc",
+    "Insurance":      "#a8a29e",
+    "Investments":    "#86efac",
     "Unknown":        "#6b7280",
 }
 
