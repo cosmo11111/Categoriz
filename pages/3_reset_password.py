@@ -85,14 +85,17 @@ else:
     if "reset_session_verified" not in st.session_state:
         sb = get_supabase()
         verified = False
+        debug_info = {"has_code": has_code, "has_token": has_token,
+                      "is_recovery": is_recovery, "params": dict(params)}
 
         # PKCE flow — ?code=...
         if has_code:
             try:
                 sb.auth.exchange_code_for_session({"auth_code": params["code"]})
                 verified = True
-            except Exception:
-                pass
+                debug_info["method"] = "exchange_code_for_session: OK"
+            except Exception as ex:
+                debug_info["method"] = f"exchange_code_for_session: FAILED — {ex}"
 
         # Legacy OTP flow — ?token=...&type=recovery
         if not verified and has_token and is_recovery:
@@ -105,10 +108,12 @@ else:
                 })
                 verified = True
                 st.session_state.reset_email = email_param
-            except Exception:
-                pass
+                debug_info["method"] = "verify_otp: OK"
+            except Exception as ex:
+                debug_info["method"] = f"verify_otp: FAILED — {ex}"
 
         st.session_state.reset_session_verified = verified
+        st.session_state.reset_debug = debug_info
 
     _, col, _ = st.columns([1, 2, 1])
     with col:
@@ -123,6 +128,8 @@ else:
                 'Request a new one</a>.</div>',
                 unsafe_allow_html=True,
             )
+            with st.expander("🐛 Debug info"):
+                st.write(st.session_state.get("reset_debug", {}))
             st.stop()
 
         saved_email = st.session_state.get("reset_email", "")
