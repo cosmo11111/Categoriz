@@ -1261,15 +1261,9 @@ Top vendors: {_top_v}"""
 
                     # ── Save report card (inside vendor col) ──────────────────
                     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
-                    st.markdown("""
-                    <div style="background:#1a1a24;border:1.5px solid #f0c040;border-radius:10px;padding:14px 16px">
-                      <p style="font-size:.75rem;font-weight:600;color:#f0c040;
-                                text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px">
-                        💾 Save Report
-                      </p>
-                    """, unsafe_allow_html=True)
+                    st.markdown("#### Save Report", unsafe_allow_html=False)
                     if not uid:
-                        st.markdown("<p style='color:#0f0f13;font-size:.85rem;margin:0'>Sign in to save reports.</p>", unsafe_allow_html=True)
+                        st.markdown("<p style='color:#888;font-size:.85rem;margin:0'>Sign in to save reports.</p>", unsafe_allow_html=True)
                     else:
                         sv1, sv2 = st.columns([1, 1])
                         with sv1:
@@ -1288,7 +1282,7 @@ Top vendors: {_top_v}"""
                         if ps_str and pe_str and check_duplicate_report(uid, ps_str, pe_str):
                             st.warning("⚠️ Overlapping report already exists.")
 
-                        if st.button("Save report", use_container_width=True, key="save_report_btn"):
+                        if st.button("Save report", use_container_width=True, key="save_report_btn", type="primary"):
                             if not report_label.strip():
                                 st.warning("Enter a label.")
                             else:
@@ -1328,7 +1322,7 @@ Top vendors: {_top_v}"""
                                     st.success("✅ Saved!")
                                 else:
                                     st.error(f"Could not save: {err}")
-                    st.markdown("</div>", unsafe_allow_html=True)
+
 
         # ── Sentinel: inline add-new-category UI ─────────────────────────────
         if new_cats_needed:
