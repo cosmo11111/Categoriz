@@ -101,10 +101,13 @@ else:
         if not verified and has_token and is_recovery:
             email_param = params.get("email", "")
             if not email_param:
-                # Email missing from URL — store token and ask user for email
-                st.session_state.reset_token   = params["token"]
+                # Email missing from URL — store token, ask user for email
+                # Don't set reset_session_verified yet — wait for email entry
+                st.session_state.reset_token      = params["token"]
                 st.session_state.reset_needs_email = True
                 debug_info["method"] = "verify_otp: needs email from user"
+                st.session_state.reset_debug = debug_info
+                # Skip setting reset_session_verified — let the email form handle it
             else:
                 try:
                     sb.auth.verify_otp({
@@ -115,11 +118,15 @@ else:
                     verified = True
                     st.session_state.reset_email = email_param
                     debug_info["method"] = "verify_otp: OK"
+                    st.session_state.reset_session_verified = verified
+                    st.session_state.reset_debug = debug_info
                 except Exception as ex:
                     debug_info["method"] = f"verify_otp: FAILED — {ex}"
-
-        st.session_state.reset_session_verified = verified
-        st.session_state.reset_debug = debug_info
+                    st.session_state.reset_session_verified = False
+                    st.session_state.reset_debug = debug_info
+        else:
+            st.session_state.reset_session_verified = verified
+            st.session_state.reset_debug = debug_info
 
     _, col, _ = st.columns([1, 2, 1])
     with col:
