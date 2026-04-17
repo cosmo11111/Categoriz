@@ -88,6 +88,38 @@ st.html("""
 """)
 
 
+# ── Stripe loading screen — show before anything else renders ─────────────────
+if st.session_state.get("_stripe_url"):
+    stripe_url = st.session_state.pop("_stripe_url")
+    st.markdown(f"""
+    <style>
+    #MainMenu {{ visibility:hidden; }} footer {{ visibility:hidden; }}
+    [data-testid="stHeader"] {{ display:none; }}
+    [data-testid="stSidebar"] {{ display:none; }}
+    .block-container {{ padding:0 !important; }}
+    </style>
+    <div style="position:fixed;inset:0;background:#0f0f13;display:flex;flex-direction:column;
+                align-items:center;justify-content:center;z-index:9999">
+      <div style="font-family:'DM Sans',sans-serif;font-size:2rem;font-weight:700;
+                  font-style:italic;color:#f0c040;letter-spacing:.04em;margin-bottom:32px">
+        CATEGORIZ
+      </div>
+      <div style="color:#e8e6e1;font-size:1rem;margin-bottom:8px">Taking you to Stripe...</div>
+      <div style="color:#555;font-size:.85rem;margin-bottom:32px">You'll be redirected in a moment</div>
+      <meta http-equiv="refresh" content="2;url={stripe_url}">
+      <div style="width:40px;height:40px;border:3px solid #2a2a38;
+                  border-top-color:#f0c040;border-radius:50%;
+                  animation:spin 0.8s linear infinite"></div>
+      <style>@keyframes spin {{from{{transform:rotate(0deg)}}to{{transform:rotate(360deg)}}}}</style>
+      <div style="margin-top:24px">
+        <a href="{stripe_url}" style="color:#555;font-size:.8rem">
+          Click here if not redirected automatically
+        </a>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.stop()
+
 # ── Handle successful Stripe redirect ─────────────────────────────────────────
 qp = st.query_params
 if qp.get("success") == "1":
@@ -244,14 +276,9 @@ if st.session_state.get("_checkout_tier"):
             customer_email=email,
             metadata={"uid": uid, "tier": chosen_tier},
         )
-        # Show spinner then redirect via meta refresh — works inside Streamlit iframe
-        st.markdown(f"""
-        <meta http-equiv="refresh" content="0;url={checkout.url}">
-        <p style="color:#888;font-size:.9rem;text-align:center;padding:20px 0">
-            Redirecting to Stripe checkout...
-        </p>
-        """, unsafe_allow_html=True)
-        st.stop()
+        # Store URL in session and rerun to show loading screen
+        st.session_state._stripe_url = checkout.url
+        st.rerun()
     except ImportError:
         st.error("stripe package not installed. Run: pip install stripe")
     except Exception as e:
