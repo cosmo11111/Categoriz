@@ -12,7 +12,7 @@ from db import (
     can_analyse, increment_usage, get_profile, TIER_LABELS, TIER_LIMITS,
     load_categories, save_category, delete_category,
     load_vendor_rules, apply_vendor_rules, save_vendor_rule, delete_vendor_rule,
-    save_report, load_reports, load_report_items, delete_report,
+    save_report, load_reports, load_report_items, delete_report, check_duplicate_report,
     DEFAULT_CATEGORY_COLORS,
 )
 
@@ -1300,18 +1300,58 @@ elif st.session_state.step == 3:
                 with sr3:
                     period_end = st.date_input("Period end", value=None,
                                                label_visibility="collapsed", key="period_end")
+
+                # Duplicate warning
+                ps_str = str(period_start) if period_start else None
+                pe_str = str(period_end)   if period_end   else None
+                if ps_str and pe_str and check_duplicate_report(uid, ps_str, pe_str):
+                    st.warning(
+                        "⚠️ A saved report already overlaps this date range. "
+                        "You can still save but check you're not duplicating data."
+                    )
+
                 if st.button("💾 Save report", type="primary", use_container_width=True):
                     if not report_label.strip():
                         st.warning("Enter a label for this report.")
                     else:
-                        # Convert df_edited to list of dicts for saving
-                        save_data = df_edited[["date","name","amount","category"]].to_dict("records")
+                        # Sync latest widget state into tx_rows before saving
+                        _rows = st.session_state.get("tx_rows", [])
+                        for _i in range(len(_rows)):
+                            _rows[_i]["date"]         = st.session_state.get(f"td_{_i}_date",     _rows[_i].get("date",""))
+                            _rows[_i]["vendor_clean"] = st.session_state.get(f"td_{_i}_name",     _rows[_i].get("vendor_clean",""))
+                            _rows[_i]["name"]         = _rows[_i].get("name", _rows[_i]["vendor_clean"])
+                            _rows[_i]["amount"]       = st.session_state.get(f"td_{_i}_amt",      _rows[_i].get("amount", 0))
+                            _rows[_i]["category"]     = st.session_state.get(f"td_{_i}_cat",      _rows[_i].get("category","Unknown"))
+
+                        save_data = []
+                        for row in _rows:
+                            try:
+                                amt = float(str(row.get("amount", 0)).replace("$","").replace(",","").strip() or 0)
+                            except (ValueError, TypeError):
+                                amt = 0.0
+                            vc = row.get("vendor_clean") or ""
+                            if str(vc).lower() in ("nan", "none", ""):
+                                vc = row.get("name", "")
+                            save_data.append({
+                                "date":         str(row.get("date", "")),
+                                "name":         str(row.get("name", "") or ""),
+                                "vendor_clean": str(vc),
+                                "amount":       amt,
+                                "category":     str(row.get("category", "Unknown")),
+                            })
+
+                        # Determine tier_required based on user's subscription
+                        from db import get_profile as _gp
+                        _profile = _gp(uid)
+                        _tier    = _profile.get("subscription_tier", "free_trial")
+                        _tier_req = "free_trial" if _tier == "free_trial" else "starter"
+
                         ok, err = save_report(
                             uid,
                             report_label.strip(),
-                            str(period_start) if period_start else None,
-                            str(period_end)   if period_end   else None,
+                            ps_str, pe_str,
                             save_data,
+                            tier_required=_tier_req,
                         )
                         if ok:
                             st.success("✅ Report saved!")
