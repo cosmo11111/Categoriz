@@ -386,7 +386,8 @@ with st.sidebar:
     if st.button("⌂ Home", use_container_width=True):
         for k in ["step","pdf_bytes","redacted_pdf_bytes","annotations",
                   "pending","page_num","transactions","categorized",
-                  "tx_rows","tx_rows_source","_tx_pending_delete","_tx_pending_add"]:
+                  "tx_rows","tx_rows_source","_tx_pending_delete","_tx_pending_add",
+                  "_is_demo","_insight_to_save"]:
             st.session_state.pop(k, None)
         for k in [k for k in st.session_state if k.startswith("td_")]:
             del st.session_state[k]
@@ -781,6 +782,7 @@ elif st.session_state.step == 3:
                 if uid:
                     increment_usage(uid)
                 st.session_state._is_demo = False
+                st.session_state.pop("_insight_to_save", None)
             except Exception as e:
                 st.error(f"Gemini error: {e}")
                 st.stop()
