@@ -814,6 +814,13 @@ elif st.session_state.step == 3:
 
         # ── Transaction table ─────────────────────────────────────────────────
         st.markdown("#### All Transactions")
+        st.markdown(
+            "<p style='font-size:.85rem;color:#888;margin:-8px 0 8px'>Manage custom categories "
+            "and vendor rules in "
+            "<a href='/6_settings' target='_self' style='color:#aaa;text-decoration:underline'>"
+            "Settings</a>.</p>",
+            unsafe_allow_html=True,
+        )
 
         user     = get_user()
         uid      = user.id if hasattr(user,"id") else user.get("id") if user else None
@@ -1118,10 +1125,7 @@ Top vendors: {_top_v}"""
 
         if not cat_totals.empty:
             with _charts_placeholder.container():
-                if n_income > 0:
-                    st.caption(f"ℹ️ Charts show spending only. "
-                               f"{n_income} income/zero row{'s' if n_income!=1 else ''} "
-                               f"excluded — visible in metrics above.")
+
                 pie_col, vendor_col = st.columns([1, 1])
 
                 with pie_col:
@@ -1258,8 +1262,8 @@ Top vendors: {_top_v}"""
                     # ── Save report card (inside vendor col) ──────────────────
                     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
                     st.markdown("""
-                    <div style="background:#f0c040;border-radius:10px;padding:14px 16px">
-                      <p style="font-size:.75rem;font-weight:600;color:#0f0f13;
+                    <div style="background:#1a1a24;border:1.5px solid #f0c040;border-radius:10px;padding:14px 16px">
+                      <p style="font-size:.75rem;font-weight:600;color:#f0c040;
                                 text-transform:uppercase;letter-spacing:.06em;margin:0 0 10px">
                         💾 Save Report
                       </p>
@@ -1360,20 +1364,12 @@ Top vendors: {_top_v}"""
                         else:
                             st.error(f"Could not save: {err}")
 
-        # ── Settings hint ─────────────────────────────────────────────────────
+        # ── Settings hint — shown after vendor rule auto-save ────────────────
         if vendor_rule_queue:
             st.markdown(
                 f'<div class="info-box green">✅ {len(vendor_rule_queue)} vendor rule'
                 f'{"s" if len(vendor_rule_queue)!=1 else ""} saved automatically. '
-                f'Manage your categories and vendor rules in '
-                f'<a href="/6_settings" target="_self" style="color:#34d399">Settings</a>.</div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                "<p style='font-size:.8rem;color:#444;margin:8px 0'>💡 Categories and vendor rules "
-                "can be managed in "
-                "<a href='/6_settings' target='_self' style='color:#555'>Settings</a>.</p>",
+                f'Manage in <a href="/6_settings" target="_self" style="color:#34d399">Settings</a>.</div>',
                 unsafe_allow_html=True,
             )
 
