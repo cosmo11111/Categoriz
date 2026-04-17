@@ -88,15 +88,6 @@ st.html("""
 """)
 
 
-# ── Stripe checkout link — open in new tab to bypass iframe restriction ────────
-if st.session_state.get("_stripe_url"):
-    stripe_url = st.session_state.pop("_stripe_url")
-    st.success("✅ Checkout session ready!")
-    st.link_button("Continue to Stripe →", stripe_url,
-                   type="primary", use_container_width=True)
-    st.caption("A new tab will open with the Stripe checkout page.")
-    st.stop()
-
 # ── Handle successful Stripe redirect ─────────────────────────────────────────
 qp = st.query_params
 if qp.get("success") == "1":
@@ -105,6 +96,55 @@ if qp.get("success") == "1":
 if qp.get("cancelled") == "1":
     st.info("Checkout cancelled — no charge was made.")
     st.query_params.clear()
+
+# ── Pre-generate Stripe checkout URLs on page load ────────────────────────────
+# Done here so the upgrade buttons are instant one-click links
+_starter_url   = None
+_unlimited_url = None
+
+if uid and tier not in ("starter", "unlimited"):
+    try:
+        import stripe as _stripe
+        _stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
+        _app_url = st.secrets.get("APP_URL", "").rstrip("/")
+
+        if tier == "free_trial":
+            # Pre-generate both so either button works instantly
+            _s = _stripe.checkout.Session.create(
+                mode="subscription",
+                line_items=[{"price": st.secrets.get("STRIPE_STARTER_PRICE_ID",""), "quantity": 1}],
+                success_url=f"{_app_url}/pricing?success=1",
+                cancel_url=f"{_app_url}/pricing?cancelled=1",
+                client_reference_id=uid,
+                customer_email=email,
+                metadata={"uid": uid, "tier": "starter"},
+            )
+            _starter_url = _s.url
+
+            _u = _stripe.checkout.Session.create(
+                mode="subscription",
+                line_items=[{"price": st.secrets.get("STRIPE_UNLIMITED_PRICE_ID",""), "quantity": 1}],
+                success_url=f"{_app_url}/pricing?success=1",
+                cancel_url=f"{_app_url}/pricing?cancelled=1",
+                client_reference_id=uid,
+                customer_email=email,
+                metadata={"uid": uid, "tier": "unlimited"},
+            )
+            _unlimited_url = _u.url
+
+        elif tier == "starter":
+            _u = _stripe.checkout.Session.create(
+                mode="subscription",
+                line_items=[{"price": st.secrets.get("STRIPE_UNLIMITED_PRICE_ID",""), "quantity": 1}],
+                success_url=f"{_app_url}/pricing?success=1",
+                cancel_url=f"{_app_url}/pricing?cancelled=1",
+                client_reference_id=uid,
+                customer_email=email,
+                metadata={"uid": uid, "tier": "unlimited"},
+            )
+            _unlimited_url = _u.url
+    except Exception:
+        pass  # Buttons will be disabled if URLs couldn't be generated
 
 # ── Header ─────────────────────────────────────────────────────────────────────
 st.markdown("## ⚡ Choose your plan")
@@ -194,10 +234,12 @@ with col2:
         st.button("Downgrade to Starter", key="starter_btn", disabled=True,
                   use_container_width=True, help="Contact support to downgrade")
     else:
-        if st.button("Upgrade to Starter", key="starter_btn",
-                     type="primary", use_container_width=True):
-            st.session_state._checkout_tier = "starter"
-            st.rerun()
+        if _starter_url:
+            st.link_button("Upgrade to Starter →", _starter_url,
+                           type="primary", use_container_width=True)
+        else:
+            st.button("Upgrade to Starter", key="starter_btn", disabled=True,
+                      use_container_width=True)
 
 with col3:
     is_current = tier == "unlimited"
@@ -218,10 +260,12 @@ with col3:
     if is_current:
         st.button("Current plan", key="unlimited_btn", disabled=True, use_container_width=True)
     else:
-        if st.button("Upgrade to Unlimited", key="unlimited_btn",
-                     use_container_width=True):
-            st.session_state._checkout_tier = "unlimited"
-            st.rerun()
+        if _unlimited_url:
+            st.link_button("Upgrade to Unlimited →", _unlimited_url,
+                           type="primary", use_container_width=True)
+        else:
+            st.button("Upgrade to Unlimited", key="unlimited_btn", disabled=True,
+                      use_container_width=True)
 
 # ── Stripe Checkout redirect ────────────────────────────────────────────────────
 # Triggered on next rerun after button click above
