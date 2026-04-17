@@ -97,20 +97,26 @@ else:
             except Exception as ex:
                 debug_info["method"] = f"exchange_code_for_session: FAILED — {ex}"
 
-        # Legacy OTP flow — ?token=...&type=recovery
+        # Legacy OTP flow — ?token=...&type=recovery&email=...
         if not verified and has_token and is_recovery:
-            try:
-                email_param = params.get("email", "")
-                sb.auth.verify_otp({
-                    "email": email_param,
-                    "token": params["token"],
-                    "type":  "recovery",
-                })
-                verified = True
-                st.session_state.reset_email = email_param
-                debug_info["method"] = "verify_otp: OK"
-            except Exception as ex:
-                debug_info["method"] = f"verify_otp: FAILED — {ex}"
+            email_param = params.get("email", "")
+            if not email_param:
+                # Email missing from URL — store token and ask user for email
+                st.session_state.reset_token   = params["token"]
+                st.session_state.reset_needs_email = True
+                debug_info["method"] = "verify_otp: needs email from user"
+            else:
+                try:
+                    sb.auth.verify_otp({
+                        "email": email_param,
+                        "token": params["token"],
+                        "type":  "recovery",
+                    })
+                    verified = True
+                    st.session_state.reset_email = email_param
+                    debug_info["method"] = "verify_otp: OK"
+                except Exception as ex:
+                    debug_info["method"] = f"verify_otp: FAILED — {ex}"
 
         st.session_state.reset_session_verified = verified
         st.session_state.reset_debug = debug_info
@@ -120,6 +126,39 @@ else:
         msg = st.empty()
         verified = st.session_state.get("reset_session_verified", False)
 
+        # If token exists but we need the email, show email entry + verify form
+        if not verified and st.session_state.get("reset_needs_email"):
+            st.markdown(
+                "<p style='color:#888;font-size:.85rem;margin-bottom:8px'>"
+                "Enter your email address to confirm your identity.</p>",
+                unsafe_allow_html=True,
+            )
+            with st.form("verify_email_form", border=False):
+                email_input = st.text_input("Email address",
+                                             placeholder="you@example.com")
+                verify_submitted = st.form_submit_button("Continue",
+                                                          use_container_width=True)
+            if verify_submitted and email_input.strip():
+                try:
+                    sb.auth.verify_otp({
+                        "email": email_input.strip(),
+                        "token": st.session_state.reset_token,
+                        "type":  "recovery",
+                    })
+                    st.session_state.reset_session_verified = True
+                    st.session_state.reset_email = email_input.strip()
+                    st.session_state.reset_needs_email = False
+                    st.rerun()
+                except Exception as ex:
+                    msg.markdown(
+                        f'<div class="auth-error">Could not verify: {ex}<br>'
+                        'The link may have expired — '
+                        '<a href="/3_reset_password" target="_self" style="color:#f87171">'
+                        'request a new one</a>.</div>',
+                        unsafe_allow_html=True,
+                    )
+            st.stop()
+
         if not verified:
             st.markdown(
                 '<div class="auth-error" style="margin-bottom:16px">'
@@ -128,8 +167,6 @@ else:
                 'Request a new one</a>.</div>',
                 unsafe_allow_html=True,
             )
-            with st.expander("🐛 Debug info"):
-                st.write(st.session_state.get("reset_debug", {}))
             st.stop()
 
         saved_email = st.session_state.get("reset_email", "")
