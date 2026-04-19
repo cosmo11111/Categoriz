@@ -4,14 +4,14 @@ from auth import require_auth, get_user, clear_session, get_supabase
 from db import (load_reports, load_report_items, delete_report,
                 DEFAULT_CATEGORY_COLORS, get_profile, TIER_LABELS)
 
-st.set_page_config(page_title="Saved Reports — Categoriz", page_icon="💳", layout="wide")
+st.set_page_config(page_title="Saved Reports — Clara", page_icon="💳", layout="wide")
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
-html, body, .stApp { font-family:'DM Sans',sans-serif; background:#0f0f13; color:#e8e6e1; }
-section[data-testid="stSidebar"] { background:#17171d !important; border-right:1px solid #2a2a35; }
-section[data-testid="stSidebar"] * { color:#c9c7c0 !important; }
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+html, body, .stApp { font-family:'DM Sans',sans-serif; background:#0b0b12; color:#F2EEE6; }
+section[data-testid="stSidebar"] { background:#0f0f18 !important; border-right:0.5px solid #1c1c28; }
+section[data-testid="stSidebar"] * { color:#c8c5bf !important; }
 section[data-testid="stSidebar"] button[kind="primary"] { color: #0f0f13 !important; }
 section[data-testid="stSidebar"] button[kind="primary"] * { color: #0f0f13 !important; }
 #MainMenu { visibility:hidden; } footer { visibility:hidden; }
@@ -21,19 +21,19 @@ section[data-testid="stSidebar"] button[kind="primary"] * { color: #0f0f13 !impo
 .block-container { padding-top: 1rem !important; }
 section[data-testid="stSidebar"] > div { padding-top: 1rem !important; overflow: hidden !important; }
 .stButton button { border-radius:8px !important; font-weight:500 !important; transition:all .15s !important; }
-.stButton button[kind="primary"] { background:#f0c040 !important; color:#0f0f13 !important; border:none !important; }
+.stButton button[kind="primary"] { background:#F5B731 !important; color:#0f0f13 !important; border:none !important; }
 div[data-testid="stExpander"] {
-    background:#1a1a24 !important; border:1px solid #2a2a38 !important;
+    background:#171720 !important; border:0.5px solid #1c1c28 !important;
     border-radius:12px !important; margin-bottom:12px !important;
 }
 div[data-testid="stExpander"] summary {
-    padding:6px 16px !important; background:#1a1a24 !important;
-    border-radius:12px !important; color:#e8e6e1 !important;
+    padding:6px 16px !important; background:#171720 !important;
+    border-radius:12px !important; color:#F2EEE6 !important;
 }
 div[data-testid="stExpander"] summary:hover { background:#1e1e2e !important; }
 div[data-testid="stExpander"] summary svg { color:#555 !important; }
 div[data-testid="stExpander"] > div:last-child {
-    border-top:1px solid #2a2a38 !important; background:#1a1a24 !important;
+    border-top:0.5px solid #1c1c28 !important; background:#171720 !important;
     border-radius:0 0 12px 12px !important; padding:16px !important;
 }
 [data-testid="stSidebarNav"] { display: none !important; }
@@ -58,7 +58,7 @@ tier       = profile.get("subscription_tier", "free_trial")
 used       = profile.get("analyses_used", 0)
 limit      = profile.get("analyses_limit", 3)
 tier_label = TIER_LABELS.get(tier, "Free Trial")
-TIER_COLORS = {"free_trial":"#666","starter":"#3b82f6","unlimited":"#f0c040"}
+TIER_COLORS = {"free_trial":"#666","starter":"#3b82f6","unlimited":"#F5B731"}
 tier_color  = TIER_COLORS.get(tier, "#666")
 usage_str   = "Unlimited analyses" if tier=="unlimited" else \
               f"{used}/3 lifetime analyses" if tier=="free_trial" else \
@@ -67,13 +67,13 @@ usage_str   = "Unlimited analyses" if tier=="unlimited" else \
 with st.sidebar.container(key="sidebar_bottom"):
     st.markdown(f"<p style='color:#888;font-size:.8rem;margin-bottom:2px'>Signed in as</p>",
                 unsafe_allow_html=True)
-    st.markdown(f"<p style='color:#e8e6e1;font-size:.85rem;font-weight:500;"
+    st.markdown(f"<p style='color:#F2EEE6;font-size:.85rem;font-weight:500;"
                 f"word-break:break-all;margin-bottom:8px'>{email}</p>",
                 unsafe_allow_html=True)
     st.markdown(f"""
-    <div style="background:#1a1a24;border:1px solid #2a2a38;border-radius:8px;
+    <div style="background:#171720;border:0.5px solid #1c1c28;border-radius:8px;
                 padding:8px 12px;margin-bottom:10px">
-      <span style="font-size:11px;font-weight:600;color:#e8e6e1;
+      <span style="font-size:11px;font-weight:600;color:#F2EEE6;
                    text-transform:uppercase;letter-spacing:.05em">{tier_label}</span>
       <div style="font-size:11px;color:#555;margin-top:2px">{usage_str}</div>
     </div>
@@ -127,7 +127,7 @@ if st.session_state.get("_view_report_id"):
                 "name":         it.get("vendor_name") or it.get("vendor_name_clean") or "",
                 "vendor_clean": it.get("vendor_name_clean") or it.get("vendor_name") or "",
                 "amount":       float(it.get("amount") or 0),
-                "category":     it.get("category", "Unknown"),
+                "category":     it.get("category", "Other"),
             })
 
         # Pre-populate insight from saved report so AI isn't re-called
@@ -156,7 +156,7 @@ is_paid = tier in ("starter", "unlimited")
 st.markdown("""
 <div style="padding:4px 0 8px">
   <span style="font-family:'DM Sans',sans-serif;font-size:1.2rem;font-weight:700;
-               font-style:italic;color:#f0c040;letter-spacing:.04em">CATEGORIZ</span>
+               font-family:'DM Serif Display',serif;font-style:italic;font-size:1.4rem;color:#F5B731;letter-spacing:-.01em">Clara</span>
 </div>
 """, unsafe_allow_html=True)
 
@@ -173,7 +173,7 @@ if not reports:
     st.markdown("""
     <div style="text-align:center;padding:4rem 1rem">
         <div style="font-size:2.5rem;margin-bottom:16px">📂</div>
-        <p style="font-size:1.1rem;color:#e8e6e1;margin-bottom:8px">No saved reports yet</p>
+        <p style="font-size:1.1rem;color:#F2EEE6;margin-bottom:8px">No saved reports yet</p>
         <p style="color:#666;font-size:.9rem">Upload a bank statement, categorize your expenses,
         then save the report from the results page.</p>
     </div>""", unsafe_allow_html=True)
@@ -229,15 +229,15 @@ if month_data:
         margin=dict(l=0, r=0, t=10, b=10),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(color="#c9c7c0", size=11, family="DM Sans"),
+        font=dict(color="#c8c5bf", size=11, family="DM Sans"),
         showlegend=True,
         legend=dict(
             orientation="h", yanchor="bottom", y=1.02,
             xanchor="left", x=0, font=dict(size=10),
         ),
-        xaxis=dict(gridcolor="#1e1e28", tickfont=dict(size=10), linecolor="#2a2a38"),
+        xaxis=dict(gridcolor="#1c1c28", tickfont=dict(size=10), linecolor="#252535"),
         yaxis=dict(
-            gridcolor="#1e1e28", tickfont=dict(size=10),
+            gridcolor="#1c1c28", tickfont=dict(size=10),
             ticksuffix="%" if show_pct else "",
             tickprefix="" if show_pct else "$",
             range=[0, 100] if show_pct else None,
@@ -275,21 +275,21 @@ for report in reports:
         # 3 metric tiles
         st.markdown(f"""
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px">
-          <div style="background:#0f0f13;border-radius:8px;padding:12px 14px">
+          <div style="background:#0b0b12;border-radius:8px;padding:12px 14px">
             <div style="font-size:16px;font-weight:500;color:#f87171;
-                        font-family:'DM Mono',monospace">${abs(total_spend):,.2f}</div>
+                        font-family:'DM Sans',sans-serif;font-weight:300">${abs(total_spend):,.2f}</div>
             <div style="font-size:10px;color:#555;margin-top:4px;
                         text-transform:uppercase;letter-spacing:.05em">Total spent</div>
           </div>
-          <div style="background:#0f0f13;border-radius:8px;padding:12px 14px">
+          <div style="background:#0b0b12;border-radius:8px;padding:12px 14px">
             <div style="font-size:16px;font-weight:500;color:#34d399;
-                        font-family:'DM Mono',monospace">${total_income:,.2f}</div>
+                        font-family:'DM Sans',sans-serif;font-weight:300">${total_income:,.2f}</div>
             <div style="font-size:10px;color:#555;margin-top:4px;
                         text-transform:uppercase;letter-spacing:.05em">Income</div>
           </div>
-          <div style="background:#0f0f13;border-radius:8px;padding:12px 14px">
-            <div style="font-size:16px;font-weight:500;color:#e8e6e1;
-                        font-family:'DM Mono',monospace">{tx_count}</div>
+          <div style="background:#0b0b12;border-radius:8px;padding:12px 14px">
+            <div style="font-size:16px;font-weight:500;color:#F2EEE6;
+                        font-family:'DM Sans',sans-serif;font-weight:300">{tx_count}</div>
             <div style="font-size:10px;color:#555;margin-top:4px;
                         text-transform:uppercase;letter-spacing:.05em">Transactions</div>
           </div>
@@ -300,10 +300,10 @@ for report in reports:
         ai_insight = report.get("ai_insight")
         if ai_insight:
             st.markdown(f"""
-            <div style="background:#0f0f13;border-radius:8px;padding:12px 14px;margin-bottom:16px">
-              <p style="font-size:.7rem;font-weight:600;color:#f0c040;text-transform:uppercase;
+            <div style="background:#0b0b12;border-radius:8px;padding:12px 14px;margin-bottom:16px">
+              <p style="font-size:.7rem;font-weight:600;color:#F5B731;text-transform:uppercase;
                         letter-spacing:.08em;margin:0 0 6px">✦ AI Insight</p>
-              <p style="font-size:.85rem;color:#c9c7c0;line-height:1.6;margin:0">{ai_insight}</p>
+              <p style="font-size:.85rem;color:#c8c5bf;line-height:1.6;margin:0">{ai_insight}</p>
             </div>
             """, unsafe_allow_html=True)
 
@@ -314,20 +314,20 @@ for report in reports:
             for v in top_vendors[:3]:
                 vname   = v.get("vendor", "Unknown")
                 vamt    = float(v.get("amount", 0))
-                vcat    = v.get("category", "Unknown")
+                vcat    = v.get("category", "Other")
                 bar_pct = int(vamt / max_amt * 100)
                 color   = CATEGORY_COLORS.get(vcat, "#6b7280")
                 # Use a non-grey fallback for uncategorised vendors
                 display_color = color if color != "#6b7280" else "#888"
                 vendor_html += f"""
-                <div style="padding:8px 0;border-bottom:1px solid #1e1e28">
+                <div style="padding:8px 0;border-bottom:0.5px solid #1c1c28">
                   <div style="display:flex;justify-content:space-between;
                               align-items:baseline;margin-bottom:4px">
-                    <span style="font-size:.85rem;color:#e8e6e1">{vname}</span>
-                    <span style="font-size:.85rem;font-weight:500;color:#e8e6e1;
-                                 font-family:'DM Mono',monospace">${vamt:,.2f}</span>
+                    <span style="font-size:.85rem;color:#F2EEE6">{vname}</span>
+                    <span style="font-size:.85rem;font-weight:500;color:#F2EEE6;
+                                 font-family:'DM Sans',sans-serif;font-weight:300">${vamt:,.2f}</span>
                   </div>
-                  <div style="background:#1e1e28;border-radius:3px;height:3px">
+                  <div style="background:#171720;border-radius:3px;height:3px">
                     <div style="width:{bar_pct}%;height:3px;border-radius:3px;
                                 background:{display_color}"></div>
                   </div>
@@ -351,7 +351,7 @@ for report in reports:
                     st.rerun()
             else:
                 st.markdown(
-                    "<div style='padding:8px 12px;border:1px solid #2a2a38;"
+                    "<div style='padding:8px 12px;border:0.5px solid #1c1c28;"
                     "border-radius:8px;font-size:.85rem;color:#555;"
                     "text-align:center'>🔒 Upgrade to Starter to view full report</div>",
                     unsafe_allow_html=True
