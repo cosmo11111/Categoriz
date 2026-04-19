@@ -17,7 +17,7 @@ from db import (
 )
 
 # ── Page config ───────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Expense Categorizer", page_icon="💳", layout="wide")
+st.set_page_config(page_title="Clara", page_icon="💳", layout="wide")
 
 # ── Auth check before anything renders ────────────────────────────────────────
 # Show a branded loading screen immediately, then redirect if not logged in.
@@ -26,16 +26,16 @@ from auth import is_logged_in
 if not is_logged_in():
     st.markdown("""
     <style>
-      html, body, .stApp { background-color:#0f0f13; }
+      html, body, .stApp { background-color:#0b0b12; }
       #MainMenu, footer, header { visibility:hidden; }
       [data-testid="stSidebar"] { display:none; }
       [data-testid="stToolbar"] { display:none; }
     </style>
     <div style="display:flex;flex-direction:column;align-items:center;
-                justify-content:center;height:100vh;background:#0f0f13">
-      <div style="font-family:'DM Sans',sans-serif;font-size:2.4rem;font-weight:700;
-                  font-style:italic;color:#f0c040;letter-spacing:.04em;margin-bottom:16px">
-        CATEGORIZ
+                justify-content:center;height:100vh;background:#0b0b12">
+      <div style="font-family:'DM Serif Display',serif;font-style:italic;font-size:3rem;
+                  color:#F5B731;letter-spacing:-.01em;margin-bottom:16px">
+        Clara
       </div>
       <div style="color:#555;font-size:.9rem">Loading...</div>
     </div>
@@ -45,9 +45,9 @@ if not is_logged_in():
 
 st.markdown("""
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
 
-  html, body, .stApp { font-family: 'DM Sans', sans-serif; background-color: #0f0f13; color: #e8e6e1; }
+  html, body, .stApp { font-family: 'DM Sans', sans-serif; background-color:#0b0b12; color: #F2EEE6; }
 
   /* Remove Streamlit header bar */
   [data-testid="stHeader"] { display: none !important; }
@@ -61,7 +61,7 @@ st.markdown("""
 
   /* Sidebar */
   section[data-testid="stSidebar"] { background: #17171d !important; border-right: 1px solid #2a2a35; }
-  section[data-testid="stSidebar"] * { color: #c9c7c0 !important; }
+  section[data-testid="stSidebar"] * { color: #c8c5bf !important; }
   /* Hide auto-generated page list */
   [data-testid="stSidebarNav"] { display: none !important; }
   /* Hide the settings/hamburger menu to prevent theme switching */
@@ -90,23 +90,23 @@ st.markdown("""
   /* Step badges */
   .step-badge {
     display:inline-flex; align-items:center; gap:10px;
-    background:#1e1e28; border:1px solid #2e2e3e;
+    background:#171720; border:0.5px solid #1c1c28;
     border-radius:12px; padding:14px 20px; margin-bottom:12px; width:100%;
   }
   .step-num {
     width:28px; height:28px; border-radius:50%;
-    background:#f0c040; color:#0f0f13;
+    background:#F5B731; color:#0f0f13;
     font-weight:700; font-size:13px;
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
   }
   .step-num.done { background:#34d399; }
-  .step-num.active { background:#f0c040; box-shadow: 0 0 12px rgba(240,192,64,0.4); }
-  .step-text { font-size:14px; color:#c9c7c0; line-height:1.4; }
-  .step-text b { color:#e8e6e1; }
+  .step-num.active { background:#F5B731; box-shadow: 0 0 12px rgba(245,183,49,0.4); }
+  .step-text { font-size:14px; color:#c8c5bf; line-height:1.4; }
+  .step-text b { color:#F2EEE6; }
 
   /* Info boxes */
   .info-box {
-    background:#1a1a24; border-left:3px solid #f0c040;
+    background:#171720; border-left:3px solid #F5B731;
     padding:.7rem 1rem; border-radius:6px;
     font-size:.85rem; color:#aaa; margin-bottom:.75rem;
   }
@@ -116,25 +116,25 @@ st.markdown("""
 
   /* Cards */
   .card {
-    background:#1e1e28; border:1px solid #2a2a38;
+    background:#171720; border:0.5px solid #1c1c28;
     border-radius:12px; padding:20px; margin-bottom:16px;
   }
-  .card h3 { margin:0 0 4px; font-size:1rem; color:#e8e6e1; }
+  .card h3 { margin:0 0 4px; font-size:1rem; color:#F2EEE6; }
   .card p  { margin:0; font-size:.82rem; color:#888; }
 
   /* Metric strip */
   .metric-strip { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
   .metric {
-    background:#1e1e28; border:1px solid #2a2a38;
+    background:#171720; border:0.5px solid #1c1c28;
     border-radius:10px; padding:14px 18px; flex:1; min-width:120px;
   }
-  .metric .val { font-size:1.5rem; font-weight:600; font-family:'DM Mono',monospace; color:#f0c040; }
+  .metric .val { font-size:1.5rem; font-weight:300; font-family:'DM Sans',sans-serif; color:#F5B731; }
   .metric .lbl { font-size:.75rem; color:#666; margin-top:2px; }
 
   /* Category pill */
   .pill {
     display:inline-block; padding:2px 10px; border-radius:20px;
-    font-size:.75rem; font-weight:500; background:#2a2a38; color:#c9c7c0;
+    font-size:.75rem; font-weight:500; background:#252535; color:#c8c5bf;
   }
 
   /* Redact warning */
@@ -150,22 +150,22 @@ st.markdown("""
   /* Custom expense table */
   .tx-table { width:100%; border-collapse:collapse; margin-bottom:0; }
   .tx-table th {
-    background:#17171d; color:#666; font-size:.75rem; font-weight:500;
-    padding:8px 10px; text-align:left; border-bottom:1px solid #2a2a38;
+    background:#0f0f18; color:#666; font-size:.75rem; font-weight:500;
+    padding:8px 10px; text-align:left; border-bottom:0.5px solid #1c1c28;
     text-transform:uppercase; letter-spacing:.04em;
   }
-  .tx-table td { padding:2px 4px; border-bottom:1px solid #1e1e28; vertical-align:middle; }
-  .tx-table tr:hover td { background:#1a1a24; }
+  .tx-table td { padding:2px 4px; border-bottom:0.5px solid #1c1c28; vertical-align:middle; }
+  .tx-table tr:hover td { background:#171720; }
   .tx-table tr:last-child td { border-bottom:none; }
 
   /* Make inputs inside table rows look flush */
   .tx-table .stTextInput input {
     background:transparent !important; border:none !important;
     border-radius:0 !important; padding:6px 6px !important;
-    font-size:.85rem !important; color:#e8e6e1 !important;
+    font-size:.85rem !important; color:#F2EEE6 !important;
   }
   .tx-table .stTextInput input:focus {
-    background:#1e1e28 !important; border-radius:4px !important;
+    background:#171720 !important; border-radius:4px !important;
     box-shadow:none !important;
   }
   .tx-table .stSelectbox > div > div {
@@ -183,12 +183,12 @@ st.markdown("""
 
   /* Add transaction button */
   .add-tx-btn button {
-    background:#1e1e28 !important; border:1px dashed #2a2a38 !important;
+    background:#171720 !important; border:0.5px dashed #252535 !important;
     color:#888 !important; border-radius:8px !important;
     font-size:.85rem !important; transition: all .15s !important;
   }
   .add-tx-btn button:hover {
-    border-color:#f0c040 !important; color:#f0c040 !important;
+    border-color:#F5B731 !important; color:#F5B731 !important;
     background:#1e1e24 !important;
   }
 
@@ -198,14 +198,14 @@ st.markdown("""
     transition: all .15s !important;
   }
   .stButton button[kind="primary"] {
-    background:#f0c040 !important; color:#0f0f13 !important; border:none !important;
+    background:#F5B731 !important; color:#0f0f13 !important; border:none !important;
   }
-  .stButton button[kind="primary"]:hover { background:#e5b830 !important; }
+  .stButton button[kind="primary"]:hover { background:#e8aa2a !important; }
 
   /* Download button */
   .stDownloadButton button {
-    background:#1e1e28 !important; border:1px solid #2a2a38 !important;
-    color:#e8e6e1 !important; border-radius:8px !important;
+    background:#171720 !important; border:0.5px solid #1c1c28 !important;
+    color:#F2EEE6 !important; border-radius:8px !important;
   }
 </style>
 """, unsafe_allow_html=True)
@@ -416,7 +416,7 @@ if user:
     tier       = profile.get("subscription_tier", "free_trial")
     used       = profile.get("analyses_used", 0)
     limit      = profile.get("analyses_limit", 3)
-    TIER_COLORS = {"free_trial":"#666","starter":"#3b82f6","unlimited":"#f0c040"}
+    TIER_COLORS = {"free_trial":"#666","starter":"#3b82f6","unlimited":"#F5B731"}
     tier_color = TIER_COLORS.get(tier, "#666")
     tier_label = TIER_LABELS.get(tier, "Free Trial")
     if tier == "unlimited":
@@ -429,11 +429,11 @@ if user:
     with st.sidebar.container(key="sidebar_bottom"):
         st.markdown(f"<p style='color:#888;font-size:.8rem;margin-bottom:2px'>Signed in as</p>",
                     unsafe_allow_html=True)
-        st.markdown(f"<p style='color:#e8e6e1;font-size:.85rem;font-weight:500;"
+        st.markdown(f"<p style='color:#F2EEE6;font-size:.85rem;font-weight:500;"
                     f"word-break:break-all;margin-bottom:8px'>{email}</p>",
                     unsafe_allow_html=True)
         st.markdown(f"""
-        <div style="background:#1a1a24;border:1px solid #2a2a38;border-radius:8px;
+        <div style="background:#171720;border:0.5px solid #1c1c28;border-radius:8px;
                     padding:8px 12px;margin-bottom:10px">
           <span style="font-size:11px;font-weight:600;color:{tier_color};
                        text-transform:uppercase;letter-spacing:.05em">{tier_label}</span>
@@ -475,8 +475,8 @@ if user:
 
 st.markdown("""
 <div style="padding:12px 0 4px">
-  <span style="font-family:'DM Sans',sans-serif;font-size:2.4rem;font-weight:700;
-               font-style:italic;color:#f0c040;letter-spacing:.04em">CATEGORIZ</span>
+  <span style="font-family:'DM Serif Display',serif;font-style:italic;font-size:2.8rem;
+               color:#F5B731;letter-spacing:-.01em">Clara</span>
 </div>
 """, unsafe_allow_html=True)
 if st.session_state.step == 1:
@@ -746,13 +746,13 @@ elif st.session_state.step == 3:
                 limit   = profile.get("analyses_limit", 3)
 
                 st.markdown(f"""
-                <div style="background:#1a1a24;border:1px solid #2a2a38;border-radius:12px;
+                <div style="background:#171720;border:0.5px solid #1c1c28;border-radius:12px;
                             padding:20px 24px;margin:16px 0">
                   <p style="color:#666;font-size:.85rem;margin:0 0 12px">
-                    Current plan: <b style="color:#e8e6e1">{TIER_LABELS.get(tier,'Free Trial')}</b>
+                    Current plan: <b style="color:#F2EEE6">{TIER_LABELS.get(tier,'Free Trial')}</b>
                     &nbsp;·&nbsp; {used} / {'∞' if tier=='unlimited' else limit} analyses used
                   </p>
-                  <p style="color:#e8e6e1;font-size:.95rem;margin:0">
+                  <p style="color:#F2EEE6;font-size:.95rem;margin:0">
                     Upgrade to keep categorizing your expenses.
                   </p>
                 </div>
@@ -1084,11 +1084,11 @@ Top vendors: {_top_v}"""
                 # Cache for saving with report
                 st.session_state["_insight_to_save"] = _insight_text
                 _insight_placeholder.markdown(f"""
-                <div style="background:#1a1a24;border:1px solid #2a2a38;border-radius:10px;
+                <div style="background:#171720;border:0.5px solid #1c1c28;border-radius:10px;
                             padding:14px 18px;margin:0 0 16px">
-                  <p style="font-size:.7rem;font-weight:600;color:#f0c040;text-transform:uppercase;
+                  <p style="font-size:.7rem;font-weight:600;color:#F5B731;text-transform:uppercase;
                             letter-spacing:.08em;margin:0 0 6px">✦ AI Insight</p>
-                  <p style="font-size:.9rem;color:#c9c7c0;line-height:1.6;margin:0">{_insight_text}</p>
+                  <p style="font-size:.9rem;color:#c8c5bf;line-height:1.6;margin:0">{_insight_text}</p>
                 </div>
                 """, unsafe_allow_html=True)
         else:
@@ -1103,13 +1103,13 @@ Top vendors: {_top_v}"""
             ]
             _teaser = _teasers[hash(str(_cat_totals_dict)) % len(_teasers)]
             _insight_placeholder.markdown(f"""
-            <div style="background:#1a1a24;border:1px solid #2a2a38;border-radius:10px;
+            <div style="background:#171720;border:0.5px solid #1c1c28;border-radius:10px;
                         padding:14px 18px;margin:0 0 16px;position:relative;overflow:hidden">
               <p style="font-size:.7rem;font-weight:600;color:#555;text-transform:uppercase;
                         letter-spacing:.08em;margin:0 0 6px">✦ AI Insight</p>
-              <p style="font-size:.9rem;color:#c9c7c0;line-height:1.6;margin:0 0 8px">
+              <p style="font-size:.9rem;color:#c8c5bf;line-height:1.6;margin:0 0 8px">
                 {_teaser}
-                <span style="background:linear-gradient(to right,#c9c7c0,transparent);
+                <span style="background:linear-gradient(to right,#c8c5bf,transparent);
                              -webkit-background-clip:text;-webkit-text-fill-color:transparent;
                              background-clip:text">
                   &nbsp;your top categories driving 80% of...
@@ -1117,7 +1117,7 @@ Top vendors: {_top_v}"""
               </p>
               <div style="position:absolute;right:0;top:0;bottom:0;width:60%;
                           background:linear-gradient(to right,transparent,#1a1a24 70%)"></div>
-              <p style="font-size:.8rem;color:#f0c040;margin:0;position:relative;z-index:1">
+              <p style="font-size:.8rem;color:#F5B731;margin:0;position:relative;z-index:1">
                 🔒 Upgrade to Starter to unlock AI insights
               </p>
             </div>
@@ -1165,11 +1165,11 @@ Top vendors: {_top_v}"""
                         margin=dict(l=60, r=60, t=100, b=80),
                         paper_bgcolor="rgba(0,0,0,0)",
                         plot_bgcolor="rgba(0,0,0,0)",
-                        font=dict(color="#c9c7c0", size=11, family="DM Sans"),
+                        font=dict(color="#c8c5bf", size=11, family="DM Sans"),
                         showlegend=False,
                         annotations=[dict(
                             text=f"<b>{centre_text}</b><br><span style='font-size:10px'>total spend</span>",
-                            x=0.5, y=0.5, font=dict(size=14, color="#e8e6e1"), showarrow=False,
+                            x=0.5, y=0.5, font=dict(size=14, color="#F2EEE6"), showarrow=False,
                         )],
                     )
                     st.plotly_chart(fig_pie, use_container_width=True,
@@ -1206,17 +1206,17 @@ Top vendors: {_top_v}"""
                                 "#6b7280"
                             )
                             rows_html += f"""
-                            <div style="padding:10px 0;border-bottom:1px solid #1e1e28">
+                            <div style="padding:10px 0;border-bottom:0.5px solid #1c1c28">
                               <div style="display:flex;justify-content:space-between;
                                           align-items:baseline;margin-bottom:5px">
-                                <span style="font-size:.85rem;color:#e8e6e1;
+                                <span style="font-size:.85rem;color:#F2EEE6;
                                              white-space:nowrap;overflow:hidden;
                                              text-overflow:ellipsis;max-width:65%">{vname}</span>
                                 <span style="font-size:.85rem;font-weight:500;
-                                             color:#e8e6e1;font-family:'DM Mono',monospace">
+                                             color:#F2EEE6;font-family:'DM Sans',sans-serif;font-weight:300">
                                   ${vrow["amount_abs"]:,.2f}</span>
                               </div>
-                              <div style="background:#1e1e28;border-radius:3px;height:4px">
+                              <div style="background:#171720;border-radius:3px;height:4px">
                                 <div style="width:{bar_pct}%;height:4px;border-radius:3px;
                                             background:{color}"></div>
                               </div>
@@ -1240,19 +1240,19 @@ Top vendors: {_top_v}"""
                                 "#6b7280"
                             )
                             rows_html += f"""
-                            <div style="padding:10px 0;border-bottom:1px solid #1e1e28">
+                            <div style="padding:10px 0;border-bottom:0.5px solid #1c1c28">
                               <div style="display:flex;justify-content:space-between;
                                           align-items:baseline;margin-bottom:5px">
-                                <span style="font-size:.85rem;color:#e8e6e1;
+                                <span style="font-size:.85rem;color:#F2EEE6;
                                              white-space:nowrap;overflow:hidden;
                                              text-overflow:ellipsis;max-width:65%">{vname}</span>
                                 <span style="font-size:.75rem;color:#888">
                                   {int(vrow["charges"])} charge{'s' if int(vrow["charges"])!=1 else ''}
                                   &nbsp;·&nbsp;
-                                  <span style="color:#e8e6e1;font-family:'DM Mono',monospace">
+                                  <span style="color:#F2EEE6;font-family:'DM Sans',sans-serif;font-weight:300">
                                     ${vrow["total"]:,.2f}</span></span>
                               </div>
-                              <div style="background:#1e1e28;border-radius:3px;height:4px">
+                              <div style="background:#171720;border-radius:3px;height:4px">
                                 <div style="width:{bar_pct}%;height:4px;border-radius:3px;
                                             background:{color}"></div>
                               </div>
