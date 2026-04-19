@@ -4,14 +4,14 @@ from db import (get_profile, TIER_LABELS, load_categories, save_category,
                 delete_category, load_vendor_rules, save_vendor_rule,
                 delete_vendor_rule, DEFAULT_CATEGORY_COLORS)
 
-st.set_page_config(page_title="Settings — Categoriz", page_icon="💳", layout="wide")
+st.set_page_config(page_title="Settings — Clara", page_icon="💳", layout="wide")
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
-html, body, .stApp { font-family:'DM Sans',sans-serif; background:#0f0f13; color:#e8e6e1; }
-section[data-testid="stSidebar"] { background:#17171d !important; border-right:1px solid #2a2a35; }
-section[data-testid="stSidebar"] * { color:#c9c7c0 !important; }
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+html, body, .stApp { font-family:'DM Sans',sans-serif; background:#0b0b12; color:#F2EEE6; }
+section[data-testid="stSidebar"] { background:#0f0f18 !important; border-right:0.5px solid #1c1c28; }
+section[data-testid="stSidebar"] * { color:#c8c5bf !important; }
 section[data-testid="stSidebar"] button[kind="primary"] { color: #0f0f13 !important; }
 section[data-testid="stSidebar"] button[kind="primary"] * { color: #0f0f13 !important; }
 #MainMenu { visibility:hidden; } footer { visibility:hidden; }
@@ -21,10 +21,10 @@ section[data-testid="stSidebar"] button[kind="primary"] * { color: #0f0f13 !impo
 .block-container { padding-top: 1rem !important; }
 section[data-testid="stSidebar"] > div { padding-top: 1rem !important; overflow: hidden !important; }
 .stButton button { border-radius:8px !important; font-weight:500 !important; }
-.stButton button[kind="primary"] { background:#f0c040 !important; color:#0f0f13 !important; border:none !important; }
+.stButton button[kind="primary"] { background:#F5B731 !important; color:#0f0f13 !important; border:none !important; }
 [data-testid="stSidebarNav"] { display: none !important; }
 .section-card {
-    background:#1a1a24; border:1px solid #2a2a38; border-radius:12px;
+    background:#171720; border:0.5px solid #1c1c28; border-radius:12px;
     padding:20px 24px; margin-bottom:20px;
 }
 .section-title {
@@ -33,7 +33,7 @@ section[data-testid="stSidebar"] > div { padding-top: 1rem !important; overflow:
 }
 .rule-row {
     display:flex; align-items:center; justify-content:space-between;
-    padding:8px 0; border-bottom:1px solid #1e1e28; font-size:.875rem;
+    padding:8px 0; border-bottom:0.5px solid #1c1c28; font-size:.875rem;
 }
 .rule-row:last-child { border-bottom:none; }
 </style>
@@ -50,7 +50,7 @@ tier       = profile.get("subscription_tier", "free_trial")
 used       = profile.get("analyses_used", 0)
 limit      = profile.get("analyses_limit", 3)
 tier_label = TIER_LABELS.get(tier, "Free Trial")
-TIER_COLORS = {"free_trial":"#666","starter":"#3b82f6","unlimited":"#f0c040"}
+TIER_COLORS = {"free_trial":"#666","starter":"#3b82f6","unlimited":"#F5B731"}
 tier_color  = TIER_COLORS.get(tier, "#666")
 usage_str   = "Unlimited analyses" if tier=="unlimited" else \
               f"{used}/3 lifetime analyses" if tier=="free_trial" else \
@@ -66,13 +66,13 @@ with st.sidebar:
 with st.sidebar.container(key="sidebar_bottom"):
     st.markdown(f"<p style='color:#888;font-size:.8rem;margin-bottom:2px'>Signed in as</p>",
                 unsafe_allow_html=True)
-    st.markdown(f"<p style='color:#e8e6e1;font-size:.85rem;font-weight:500;"
+    st.markdown(f"<p style='color:#F2EEE6;font-size:.85rem;font-weight:500;"
                 f"word-break:break-all;margin-bottom:8px'>{email}</p>",
                 unsafe_allow_html=True)
     st.markdown(f"""
-    <div style="background:#1a1a24;border:1px solid #2a2a38;border-radius:8px;
+    <div style="background:#171720;border:0.5px solid #1c1c28;border-radius:8px;
                 padding:8px 12px;margin-bottom:10px">
-      <span style="font-size:11px;font-weight:600;color:#e8e6e1;
+      <span style="font-size:11px;font-weight:600;color:#F2EEE6;
                    text-transform:uppercase;letter-spacing:.05em">{tier_label}</span>
       <div style="font-size:11px;color:#555;margin-top:2px">{usage_str}</div>
     </div>
@@ -106,7 +106,7 @@ st.html("""
 st.markdown("""
 <div style="padding:4px 0 8px">
   <span style="font-family:'DM Sans',sans-serif;font-size:1.2rem;font-weight:700;
-               font-style:italic;color:#f0c040;letter-spacing:.04em">CATEGORIZ</span>
+               font-family:'DM Serif Display',serif;font-style:italic;font-size:1.4rem;color:#F5B731;letter-spacing:-.01em">Clara</span>
 </div>
 """, unsafe_allow_html=True)
 st.markdown("## Settings")
@@ -124,7 +124,7 @@ with col1:
     with st.container():
         st.markdown(f"<p style='color:#888;font-size:.8rem;margin:0 0 2px'>Email</p>",
                     unsafe_allow_html=True)
-        st.markdown(f"<p style='color:#e8e6e1;font-size:.95rem;margin:0 0 16px'>{email}</p>",
+        st.markdown(f"<p style='color:#F2EEE6;font-size:.95rem;margin:0 0 16px'>{email}</p>",
                     unsafe_allow_html=True)
 
         if st.button("Change password", use_container_width=True):
@@ -178,22 +178,22 @@ with col1:
     # Usage bar
     if tier == "free_trial":
         pct = min(used / 3 * 100, 100)
-        bar_color = "#f87171" if pct >= 100 else "#f0c040"
+        bar_color = "#f87171" if pct >= 100 else "#F5B731"
     elif tier == "starter":
         pct = min(used / limit * 100, 100)
         bar_color = "#f87171" if pct >= 100 else "#3b82f6"
     else:
         pct = 0
-        bar_color = "#f0c040"
+        bar_color = "#F5B731"
 
     st.markdown(f"""
-    <div style="background:#0f0f13;border-radius:8px;padding:14px 16px;margin-bottom:12px">
+    <div style="background:#0b0b12;border-radius:8px;padding:14px 16px;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-        <span style="font-size:.85rem;font-weight:600;color:#e8e6e1;
+        <span style="font-size:.85rem;font-weight:600;color:#F2EEE6;
                      text-transform:uppercase;letter-spacing:.04em">{tier_label}</span>
         <span style="font-size:.8rem;color:#888">{usage_str}</span>
       </div>
-      {'<div style="background:#1e1e28;border-radius:4px;height:6px"><div style="width:' + str(pct) + '%;height:6px;border-radius:4px;background:' + bar_color + '"></div></div>' if tier != "unlimited" else
+      {'<div style="background:#171720;border-radius:4px;height:6px"><div style="width:' + str(pct) + '%;height:6px;border-radius:4px;background:' + bar_color + '"></div></div>' if tier != "unlimited" else
        '<div style="font-size:.8rem;color:#4ade80">✓ Unlimited — no monthly cap</div>'}
     </div>
     """, unsafe_allow_html=True)
@@ -228,7 +228,7 @@ with col2:
                 f"<div style='display:flex;align-items:center;gap:8px;padding:6px 0'>"
                 f"<span style='width:10px;height:10px;border-radius:50%;"
                 f"background:{cat_color};display:inline-block;flex-shrink:0'></span>"
-                f"<span style='font-size:.875rem;color:#e8e6e1'>{cat_name}</span>"
+                f"<span style='font-size:.875rem;color:#F2EEE6'>{cat_name}</span>"
                 f"{'<span style=\"font-size:.7rem;color:#444;margin-left:4px\">default</span>' if is_default else ''}"
                 f"</div>",
                 unsafe_allow_html=True
@@ -296,7 +296,7 @@ with col2:
             r1, r2, r3 = st.columns([3, 2, 1])
             with r1:
                 st.markdown(
-                    f"<p style='font-size:.875rem;color:#e8e6e1;margin:6px 0'>{vname}</p>",
+                    f"<p style='font-size:.875rem;color:#F2EEE6;margin:6px 0'>{vname}</p>",
                     unsafe_allow_html=True
                 )
             with r2:
