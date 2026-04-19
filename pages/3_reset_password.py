@@ -7,8 +7,8 @@ st.markdown(AUTH_CSS, unsafe_allow_html=True)
 st.markdown("""
 <style>
 div[data-testid="stFormSubmitButton"] button {
-    background-color: #f0c040 !important;
-    color: #0f0f13 !important;
+    background-color: #F5B731 !important;
+    color: #0b0b12 !important;
     border: none !important;
     font-weight: 600 !important;
     width: 100% !important;
@@ -23,9 +23,9 @@ SUPABASE_URL      = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
 
 WORDMARK = """<div style="text-align:center;padding:48px 0 24px">
-  <div style="font-family:'DM Sans',sans-serif;font-size:2.4rem;font-weight:700;
-              font-style:italic;color:#f0c040;letter-spacing:.04em;margin-bottom:8px">
-    CATEGORIZ
+  <div style="font-family:'DM Serif Display',serif;font-style:italic;font-size:3rem;
+              color:#F5B731;letter-spacing:-.01em;margin-bottom:8px">
+    Clara
   </div>"""
 
 
