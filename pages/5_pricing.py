@@ -1,49 +1,54 @@
 import streamlit as st
 from auth import require_auth, get_user, get_supabase, clear_session
-from db import get_profile, TIER_LABELS, upgrade_user
+from db import get_profile, TIER_LABELS
 
 st.set_page_config(page_title="Pricing — Clara", page_icon="💳", layout="centered")
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap');
 html, body, .stApp { font-family:'DM Sans',sans-serif; background:#0b0b12; color:#F2EEE6; }
 section[data-testid="stSidebar"] { background:#0f0f18 !important; border-right:0.5px solid #1c1c28; }
 section[data-testid="stSidebar"] * { color:#c8c5bf !important; }
+section[data-testid="stSidebar"] button[kind="primary"] { color:#0b0b12 !important; }
+section[data-testid="stSidebar"] button[kind="primary"] * { color:#0b0b12 !important; }
 #MainMenu { visibility:hidden; } footer { visibility:hidden; }
-.stButton button { border-radius:8px !important; font-weight:500 !important; transition:all .15s !important; }
-.stButton button[kind="primary"] { background:#F5B731 !important; color:#0f0f13 !important; border:none !important; }
+[data-testid="stHeader"] { display:none !important; }
+[data-testid="stSidebarNav"] { display:none !important; }
+.stButton button { border-radius:8px !important; font-weight:500 !important; transition:opacity .15s !important; }
+.stButton button[kind="primary"] { background:#F5B731 !important; color:#0b0b12 !important; border:none !important; }
+.stLinkButton a { border-radius:8px !important; font-weight:500 !important; }
 
-.pricing-card {
-    background:#171720; border:0.5px solid #1c1c28; border-radius:16px;
-    padding:28px 24px; margin-bottom:8px;
+.pc {
+    background:#171720; border:0.5px solid #1c1c28; border-radius:14px;
+    padding:1.75rem 1.5rem; height:100%;
 }
-.pricing-card.featured {
-    border-color:#F5B731; position:relative;
-}
-.badge {
-    display:inline-block; background:#F5B731; color:#0f0f13;
-    font-size:11px; font-weight:600; padding:3px 10px;
-    border-radius:20px; margin-bottom:12px;
+.pc.featured { border-color:#F5B731; }
+.pc.current  { border-color:#252535; }
+.pc-badge {
+    display:inline-block; background:#F5B731; color:#0b0b12;
+    font-size:10px; font-weight:500; padding:3px 10px;
+    border-radius:20px; margin-bottom:.75rem;
     letter-spacing:.04em; text-transform:uppercase;
 }
-.price-amount {
-    font-size:2.2rem; font-weight:600; color:#F2EEE6;
-    font-family:'DM Sans',sans-serif;font-weight:300; line-height:1;
+.pc-current-badge {
+    display:inline-block; background:#252535; color:#666;
+    font-size:10px; font-weight:500; padding:3px 10px;
+    border-radius:20px; margin-bottom:.75rem;
 }
-.price-period { font-size:.85rem; color:#666; margin-left:4px; }
-.feature { font-size:.88rem; color:#c8c5bf; padding:5px 0;
-           border-bottom:0.5px solid #1c1c28; }
-.feature:last-child { border-bottom:none; }
-.feature-tick { color:#F5B731; margin-right:8px; }
-.current-badge {
-    display:inline-block; background:#252535; color:#888;
-    font-size:11px; padding:3px 10px; border-radius:20px;
-    margin-bottom:12px;
+.pc-name { font-size:1rem; font-weight:500; color:#F2EEE6; margin-bottom:.4rem; }
+.pc-price {
+    font-family:'DM Serif Display',serif; font-style:italic;
+    font-size:2.4rem; color:#F2EEE6; line-height:1;
 }
-.usage-bar-bg { background:#171720; border-radius:4px; height:6px; margin:8px 0; }
-.usage-bar { background:#F5B731; border-radius:4px; height:6px; transition:width .3s; }
-  [data-testid="stSidebarNav"] { display: none !important; }
+.pc-period { font-size:.85rem; color:#555; margin-left:3px; }
+.pc-desc { font-size:.75rem; color:#444; margin:.35rem 0 1rem; }
+.pc-div { border:none; border-top:0.5px solid #1c1c28; margin:.9rem 0; }
+.pc-feat { font-size:.85rem; color:#666; padding:4px 0; display:flex; gap:8px; }
+.pc-feat.on { color:#c8c5bf; }
+.pc-tick { color:#F5B731; }
+.pc-cross { color:#252535; }
+[data-testid="stSidebarNav"] { display:none !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -57,14 +62,13 @@ tier    = profile.get("subscription_tier", "free_trial")
 used    = profile.get("analyses_used", 0)
 limit   = profile.get("analyses_limit", 3)
 
+# ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     if st.button("⌂ Home", use_container_width=True):
         st.switch_page("frontend.py")
-    st.markdown("<div style='padding-top:20vh'>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 with st.sidebar.container(key="sidebar_bottom"):
-    st.markdown(f"<p style='color:#888;font-size:.8rem;margin-bottom:2px'>Signed in as</p>",
+    st.markdown(f"<p style='color:#555;font-size:.8rem;margin-bottom:2px'>Signed in as</p>",
                 unsafe_allow_html=True)
     st.markdown(f"<p style='color:#F2EEE6;font-size:.85rem;font-weight:500;"
                 f"word-break:break-all;margin-bottom:8px'>{email}</p>",
@@ -78,238 +82,246 @@ with st.sidebar.container(key="sidebar_bottom"):
 st.html("""
 <style>
   .st-key-sidebar_bottom {
-    position: absolute;
-    bottom: 16px;
-    left: 0;
-    right: 0;
-    padding: 0 1rem;
+    position:absolute; bottom:16px; left:0; right:0; padding:0 1rem;
   }
 </style>
 """)
 
-
-# ── Handle successful Stripe redirect ─────────────────────────────────────────
+# ── Handle Stripe redirects ────────────────────────────────────────────────────
 qp = st.query_params
 if qp.get("success") == "1":
-    st.success("🎉 Payment successful! Your plan has been upgraded.")
+    st.success("Payment successful! Your plan has been upgraded.")
     st.query_params.clear()
 if qp.get("cancelled") == "1":
     st.info("Checkout cancelled — no charge was made.")
     st.query_params.clear()
 
-# ── Pre-generate Stripe checkout URLs on page load ────────────────────────────
-# Done here so the upgrade buttons are instant one-click links
+# ── Pre-generate Stripe URLs ───────────────────────────────────────────────────
 _starter_url   = None
 _unlimited_url = None
 
-if uid and tier not in ("starter", "unlimited"):
+if uid:
     try:
         import stripe as _stripe
         _stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
         _app_url = st.secrets.get("APP_URL", "").rstrip("/")
 
-        if tier == "free_trial":
-            # Pre-generate both so either button works instantly
-            _s = _stripe.checkout.Session.create(
-                mode="subscription",
-                line_items=[{"price": st.secrets.get("STRIPE_STARTER_PRICE_ID",""), "quantity": 1}],
-                success_url=f"{_app_url}/pricing?success=1",
-                cancel_url=f"{_app_url}/pricing?cancelled=1",
-                client_reference_id=uid,
-                customer_email=email,
-                metadata={"uid": uid, "tier": "starter"},
-            )
-            _starter_url = _s.url
+        if tier in ("free_trial", "starter"):
+            if tier == "free_trial":
+                _s = _stripe.checkout.Session.create(
+                    mode="subscription",
+                    line_items=[{"price": st.secrets.get("STRIPE_STARTER_PRICE_ID",""), "quantity": 1}],
+                    success_url=f"{_app_url}/pricing?success=1",
+                    cancel_url=f"{_app_url}/pricing?cancelled=1",
+                    client_reference_id=uid, customer_email=email,
+                    metadata={"uid": uid, "tier": "starter"},
+                )
+                _starter_url = _s.url
 
             _u = _stripe.checkout.Session.create(
                 mode="subscription",
                 line_items=[{"price": st.secrets.get("STRIPE_UNLIMITED_PRICE_ID",""), "quantity": 1}],
                 success_url=f"{_app_url}/pricing?success=1",
                 cancel_url=f"{_app_url}/pricing?cancelled=1",
-                client_reference_id=uid,
-                customer_email=email,
-                metadata={"uid": uid, "tier": "unlimited"},
-            )
-            _unlimited_url = _u.url
-
-        elif tier == "starter":
-            _u = _stripe.checkout.Session.create(
-                mode="subscription",
-                line_items=[{"price": st.secrets.get("STRIPE_UNLIMITED_PRICE_ID",""), "quantity": 1}],
-                success_url=f"{_app_url}/pricing?success=1",
-                cancel_url=f"{_app_url}/pricing?cancelled=1",
-                client_reference_id=uid,
-                customer_email=email,
+                client_reference_id=uid, customer_email=email,
                 metadata={"uid": uid, "tier": "unlimited"},
             )
             _unlimited_url = _u.url
     except Exception:
-        pass  # Buttons will be disabled if URLs couldn't be generated
+        pass
 
 # ── Header ─────────────────────────────────────────────────────────────────────
-st.markdown("## ⚡ Choose your plan")
-st.markdown("<p style='color:#666;margin-top:-8px'>Simple pricing, cancel anytime.</p>",
+st.markdown("""
+<div style="padding:4px 0 8px">
+  <span style="font-family:'DM Serif Display',serif;font-style:italic;font-size:2.8rem;
+               color:#F5B731;letter-spacing:-.01em">Clara</span>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("## Plans & pricing")
+st.markdown("<p style='color:#555;margin-top:-8px;margin-bottom:2rem'>Simple pricing, cancel anytime.</p>",
             unsafe_allow_html=True)
 
-# ── Current usage summary ──────────────────────────────────────────────────────
-if tier == "free_trial":
-    pct = min(used / 3 * 100, 100)
-    st.markdown(f"""
-    <div style="background:#171720;border:0.5px solid #1c1c28;border-radius:10px;
-                padding:14px 18px;margin-bottom:20px">
-      <p style="margin:0 0 6px;font-size:.85rem;color:#888">
-        Free trial &nbsp;·&nbsp; {used} of 3 lifetime analyses used
-      </p>
-      <div class="usage-bar-bg">
-        <div class="usage-bar" style="width:{pct}%"></div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-elif tier == "starter":
-    pct = min(used / limit * 100, 100)
-    st.markdown(f"""
-    <div style="background:#171720;border:0.5px solid #1c1c28;border-radius:10px;
-                padding:14px 18px;margin-bottom:20px">
-      <p style="margin:0 0 6px;font-size:.85rem;color:#888">
-        Starter plan &nbsp;·&nbsp; {used} of {limit} analyses used this month
-      </p>
-      <div class="usage-bar-bg">
-        <div class="usage-bar" style="width:{pct}%"></div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-elif tier == "unlimited":
+# ── Unlimited active banner ────────────────────────────────────────────────────
+if tier == "unlimited":
     st.markdown("""
     <div style="background:#171720;border:0.5px solid #F5B731;border-radius:10px;
-                padding:14px 18px;margin-bottom:20px">
-      <p style="margin:0;font-size:.85rem;color:#F5B731">
-        ✓ You're on the Unlimited plan — no limits on analyses.
-      </p>
+                padding:14px 18px;margin-bottom:1.5rem;display:flex;align-items:center;gap:10px">
+      <span style="color:#F5B731;font-size:1.1rem">✦</span>
+      <div>
+        <div style="font-size:.9rem;font-weight:500;color:#F2EEE6;margin-bottom:2px">
+          You're on Unlimited
+        </div>
+        <div style="font-size:.8rem;color:#555">
+          No cap on analyses. All features included. To manage or cancel your subscription
+          contact us at cosmond00@gmail.com.
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ── Usage bar for free/starter ─────────────────────────────────────────────────
+elif tier == "free_trial":
+    pct = min(used / 3 * 100, 100)
+    bar_color = "#9e4a4a" if pct >= 100 else "#F5B731"
+    st.markdown(f"""
+    <div style="background:#171720;border:0.5px solid #1c1c28;border-radius:10px;
+                padding:12px 16px;margin-bottom:1.5rem">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:.8rem;color:#555">Free trial</span>
+        <span style="font-size:.8rem;color:#555">{used} / 3 lifetime analyses</span>
+      </div>
+      <div style="background:#0b0b12;border-radius:4px;height:5px">
+        <div style="width:{pct}%;height:5px;border-radius:4px;background:{bar_color}"></div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+elif tier == "starter":
+    pct = min(used / limit * 100, 100)
+    bar_color = "#9e4a4a" if pct >= 100 else "#F5B731"
+    st.markdown(f"""
+    <div style="background:#171720;border:0.5px solid #1c1c28;border-radius:10px;
+                padding:12px 16px;margin-bottom:1.5rem">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:.8rem;color:#555">Starter plan</span>
+        <span style="font-size:.8rem;color:#555">{used} / {limit} analyses this month</span>
+      </div>
+      <div style="background:#0b0b12;border-radius:4px;height:5px">
+        <div style="width:{pct}%;height:5px;border-radius:4px;background:{bar_color}"></div>
+      </div>
     </div>
     """, unsafe_allow_html=True)
 
 # ── Pricing cards ──────────────────────────────────────────────────────────────
 col1, col2, col3 = st.columns(3)
 
+# Determine which card gets the gold border:
+# free_trial → Starter featured
+# starter    → Unlimited featured
+# unlimited  → none featured
+free_featured     = False
+starter_featured  = tier == "free_trial"
+unlimited_featured = tier == "starter"
+
 with col1:
     is_current = tier == "free_trial"
+    badge = '<div class="pc-current-badge">Current plan</div>' if is_current else '<div style="height:26px"></div>'
     st.markdown(f"""
-    <div class="pricing-card">
-      {'<div class="current-badge">Current plan</div>' if is_current else '<div style="height:24px"></div>'}
-      <div style="font-size:1rem;font-weight:600;color:#F2EEE6;margin-bottom:6px">Free trial</div>
-      <div style="margin-bottom:16px">
-        <span class="price-amount">$0</span>
+    <div class="pc {'current' if is_current else ''}">
+      {badge}
+      <div class="pc-name">Free trial</div>
+      <div style="margin:.35rem 0">
+        <span class="pc-price">$0</span>
       </div>
-      <div class="feature"><span class="feature-tick">✓</span>3 lifetime analyses</div>
-      <div class="feature"><span class="feature-tick">✓</span>All features included</div>
-      <div class="feature"><span class="feature-tick">✓</span>Saved reports</div>
-      <div class="feature" style="color:#444"><span style="margin-right:8px">✗</span>No monthly reset</div>
+      <div class="pc-desc">3 lifetime analyses</div>
+      <hr class="pc-div">
+      <div class="pc-feat on"><span class="pc-tick">✓</span>AI categorisation</div>
+      <div class="pc-feat on"><span class="pc-tick">✓</span>Spending charts</div>
+      <div class="pc-feat on"><span class="pc-tick">✓</span>Save report summaries</div>
+      <div class="pc-feat"><span class="pc-cross">✗</span>AI insights</div>
+      <div class="pc-feat"><span class="pc-cross">✗</span>Full transaction history</div>
     </div>
     """, unsafe_allow_html=True)
     if is_current:
         st.button("Current plan", key="free_btn", disabled=True, use_container_width=True)
-    else:
+    elif tier in ("starter", "unlimited"):
         st.button("Downgrade", key="free_btn", disabled=True,
-                  use_container_width=True, help="Contact support to downgrade")
+                  use_container_width=True, help="Contact cosmond00@gmail.com to downgrade")
 
 with col2:
     is_current = tier == "starter"
+    if starter_featured:
+        badge = '<div class="pc-badge">Most popular</div>'
+    elif is_current:
+        badge = '<div class="pc-current-badge">Current plan</div>'
+    else:
+        badge = '<div style="height:26px"></div>'
+
     st.markdown(f"""
-    <div class="pricing-card {'featured' if not is_current else ''}">
-      {'<div class="badge">Most popular</div>' if not is_current else '<div class="current-badge">Current plan</div>'}
-      <div style="font-size:1rem;font-weight:600;color:#F2EEE6;margin-bottom:6px">Starter</div>
-      <div style="margin-bottom:16px">
-        <span class="price-amount">$9</span>
-        <span class="price-period">/month</span>
+    <div class="pc {'featured' if starter_featured else 'current' if is_current else ''}">
+      {badge}
+      <div class="pc-name">Starter</div>
+      <div style="margin:.35rem 0">
+        <span class="pc-price">$9</span>
+        <span class="pc-period">/month</span>
       </div>
-      <div class="feature"><span class="feature-tick">✓</span>10 analyses per month</div>
-      <div class="feature"><span class="feature-tick">✓</span>Resets monthly</div>
-      <div class="feature"><span class="feature-tick">✓</span>All features included</div>
-      <div class="feature"><span class="feature-tick">✓</span>Saved reports</div>
+      <div class="pc-desc">10 analyses per month</div>
+      <hr class="pc-div">
+      <div class="pc-feat on"><span class="pc-tick">✓</span>Everything in free</div>
+      <div class="pc-feat on"><span class="pc-tick">✓</span>AI insights</div>
+      <div class="pc-feat on"><span class="pc-tick">✓</span>Full transaction history</div>
+      <div class="pc-feat on"><span class="pc-tick">✓</span>Historical reports</div>
+      <div class="pc-feat"><span class="pc-cross">✗</span>Unlimited analyses</div>
     </div>
     """, unsafe_allow_html=True)
     if is_current:
         st.button("Current plan", key="starter_btn", disabled=True, use_container_width=True)
-    elif tier == "unlimited":
-        st.button("Downgrade to Starter", key="starter_btn", disabled=True,
-                  use_container_width=True, help="Contact support to downgrade")
-    else:
+    elif tier == "free_trial":
         if _starter_url:
-            st.link_button("Upgrade to Starter →", _starter_url,
+            st.link_button("Get Starter →", _starter_url,
                            type="primary", use_container_width=True)
         else:
-            st.button("Upgrade to Starter", key="starter_btn", disabled=True,
-                      use_container_width=True)
+            st.button("Get Starter", key="starter_btn", disabled=True, use_container_width=True)
+    elif tier == "unlimited":
+        st.button("Downgrade to Starter", key="starter_btn", disabled=True,
+                  use_container_width=True, help="Contact cosmond00@gmail.com to downgrade")
 
 with col3:
     is_current = tier == "unlimited"
+    if unlimited_featured:
+        badge = '<div class="pc-badge">Upgrade</div>'
+    elif is_current:
+        badge = '<div class="pc-current-badge">Current plan</div>'
+    else:
+        badge = '<div style="height:26px"></div>'
+
     st.markdown(f"""
-    <div class="pricing-card">
-      {'<div class="current-badge">Current plan</div>' if is_current else '<div style="height:24px"></div>'}
-      <div style="font-size:1rem;font-weight:600;color:#F2EEE6;margin-bottom:6px">Unlimited</div>
-      <div style="margin-bottom:16px">
-        <span class="price-amount">$29</span>
-        <span class="price-period">/month</span>
+    <div class="pc {'featured' if unlimited_featured else 'current' if is_current else ''}">
+      {badge}
+      <div class="pc-name">Unlimited</div>
+      <div style="margin:.35rem 0">
+        <span class="pc-price">$29</span>
+        <span class="pc-period">/month</span>
       </div>
-      <div class="feature"><span class="feature-tick">✓</span>Unlimited analyses</div>
-      <div class="feature"><span class="feature-tick">✓</span>No monthly cap</div>
-      <div class="feature"><span class="feature-tick">✓</span>All features included</div>
-      <div class="feature"><span class="feature-tick">✓</span>Priority support</div>
+      <div class="pc-desc">No monthly cap</div>
+      <hr class="pc-div">
+      <div class="pc-feat on"><span class="pc-tick">✓</span>Everything in Starter</div>
+      <div class="pc-feat on"><span class="pc-tick">✓</span>Unlimited analyses</div>
+      <div class="pc-feat on"><span class="pc-tick">✓</span>Saving ratio metric</div>
+      <div class="pc-feat on"><span class="pc-tick">✓</span>Investment projection</div>
+      <div class="pc-feat on"><span class="pc-tick">✓</span>Budget targets</div>
     </div>
     """, unsafe_allow_html=True)
     if is_current:
         st.button("Current plan", key="unlimited_btn", disabled=True, use_container_width=True)
     else:
         if _unlimited_url:
-            st.link_button("Upgrade to Unlimited →", _unlimited_url,
+            st.link_button("Get Unlimited →", _unlimited_url,
                            type="primary", use_container_width=True)
         else:
-            st.button("Upgrade to Unlimited", key="unlimited_btn", disabled=True,
+            st.button("Get Unlimited", key="unlimited_btn", disabled=True,
                       use_container_width=True)
 
-# ── Stripe Checkout redirect ────────────────────────────────────────────────────
-# Triggered on next rerun after button click above
-if st.session_state.get("_checkout_tier"):
-    chosen_tier = st.session_state.pop("_checkout_tier")
+# ── Subscription management ────────────────────────────────────────────────────
+if tier in ("starter", "unlimited"):
+    st.markdown("<div style='height:2rem'></div>", unsafe_allow_html=True)
+    st.markdown("<hr style='border:none;border-top:0.5px solid #1c1c28;margin-bottom:1.5rem'>",
+                unsafe_allow_html=True)
+    st.markdown("<p style='font-size:.75rem;color:#444;text-transform:uppercase;"
+                "letter-spacing:.08em;margin-bottom:.5rem'>Manage subscription</p>",
+                unsafe_allow_html=True)
+    st.markdown("""
+    <p style='font-size:.85rem;color:#555;line-height:1.7;margin-bottom:1rem'>
+    To cancel, downgrade, or make changes to your subscription contact us at
+    <a href='mailto:cosmond00@gmail.com' style='color:#666'>cosmond00@gmail.com</a>.
+    We'll action your request within one business day.
+    </p>
+    """, unsafe_allow_html=True)
 
-    PRICE_IDS = {
-        "starter":   st.secrets.get("STRIPE_STARTER_PRICE_ID", ""),
-        "unlimited": st.secrets.get("STRIPE_UNLIMITED_PRICE_ID", ""),
-    }
-    price_id = PRICE_IDS.get(chosen_tier, "")
-    app_url  = st.secrets.get("APP_URL", "").rstrip("/")
-
-    if not price_id:
-        st.error("Stripe price ID not configured. Add STRIPE_STARTER_PRICE_ID / "
-                 "STRIPE_UNLIMITED_PRICE_ID to your Streamlit secrets.")
-        st.stop()
-
-    try:
-        import stripe
-        stripe.api_key = st.secrets["STRIPE_SECRET_KEY"]
-
-        checkout = stripe.checkout.Session.create(
-            mode="subscription",
-            line_items=[{"price": price_id, "quantity": 1}],
-            success_url=f"{app_url}/pricing?success=1",
-            cancel_url=f"{app_url}/pricing?cancelled=1",
-            client_reference_id=uid,
-            customer_email=email,
-            metadata={"uid": uid, "tier": chosen_tier},
-        )
-        # Store URL in session and rerun to show loading screen
-        st.session_state._stripe_url = checkout.url
-        st.rerun()  # Rerun to show the link button cleanly
-    except ImportError:
-        st.error("stripe package not installed. Run: pip install stripe")
-    except Exception as e:
-        st.error(f"Could not create checkout session: {e}")
-
-st.markdown("---")
+st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 st.markdown(
-    "<p style='text-align:center;color:#444;font-size:.8rem'>"
-    "Payments processed securely by Stripe · Cancel anytime · "
-    "Questions? cosmond00@gmail.com"
-    "</p>",
+    "<p style='text-align:center;color:#252535;font-size:.8rem'>"
+    "Payments processed securely by Stripe · Cancel anytime</p>",
     unsafe_allow_html=True,
 )
