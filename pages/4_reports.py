@@ -152,6 +152,22 @@ reports = load_reports(uid)
 CATEGORY_COLORS = DEFAULT_CATEGORY_COLORS
 is_paid = tier in ("starter", "unlimited")
 
+# Check if any reports were saved on free tier (no line items)
+if is_paid and reports:
+    free_tier_reports = [r for r in reports if r.get("tier_required") == "free"]
+    if free_tier_reports:
+        st.markdown(
+            f"<div style='background:#171720;border:0.5px solid #252535;"
+            f"border-radius:8px;padding:10px 14px;margin-bottom:1rem;font-size:.8rem;"
+            f"color:#555;line-height:1.6'>"
+            f"ℹ️ {len(free_tier_reports)} of your saved report"
+            f"{'s were' if len(free_tier_reports) != 1 else ' was'} saved on the free plan "
+            f"and {'don\'t' if len(free_tier_reports) != 1 else 'doesn\'t'} include full "
+            f"transaction detail. New reports saved on your current plan will have the full view."
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
 # ── Header ─────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div style="padding:4px 0 8px">
@@ -256,8 +272,9 @@ for report in reports:
     total_income  = float(report.get("total_income") or 0)
     tx_count      = report.get("transaction_count") or 0
     top_vendors   = report.get("top_vendors") or []
-    tier_required = report.get("tier_required", "starter")
-    can_view      = is_paid
+    tier_required    = report.get("tier_required", "starter")
+    has_line_items   = tier_required in ("starter", "unlimited")
+    can_view         = is_paid and has_line_items
 
     period_str = ""
     if period_start and period_end:
@@ -349,6 +366,15 @@ for report in reports:
                              type="primary", use_container_width=True):
                     st.session_state._view_report_id = rid
                     st.rerun()
+            elif is_paid and not has_line_items:
+                # User is paid but report was saved on free tier — no line items stored
+                st.markdown(
+                    "<div style='padding:8px 12px;border:0.5px solid #1c1c28;"
+                    "border-radius:8px;font-size:.8rem;color:#555;line-height:1.5'>"
+                    "This report was saved on the free plan — full transaction detail "
+                    "wasn't stored. Future reports will include the full view.</div>",
+                    unsafe_allow_html=True
+                )
             else:
                 st.markdown(
                     "<div style='padding:8px 12px;border:0.5px solid #1c1c28;"
