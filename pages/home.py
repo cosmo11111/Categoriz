@@ -329,6 +329,18 @@ if st.session_state.step in (1, 2):
                     st.session_state.step         = 2
                     render_page_b64.clear()
                     st.rerun()
+            st.markdown("---")
+            st.markdown('<p style="color:#333345;font-size:.8rem;margin-bottom:8px;'
+                        'text-transform:uppercase;letter-spacing:.06em">⚡ Developer shortcut</p>',
+                        unsafe_allow_html=True)
+            if st.button("📋 Load demo expenses", use_container_width=True):
+                st.session_state.transactions = DEMO_DATA
+                st.session_state.categorized  = True
+                st.session_state.redacted_pdf_bytes = None
+                st.session_state.annotations  = {}
+                st.session_state.step         = 3
+                st.session_state._is_demo     = True
+                st.rerun()
 
         with info_col:
             st.markdown("### How it works")
