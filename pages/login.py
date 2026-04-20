@@ -1,7 +1,7 @@
 import streamlit as st
 from auth import get_supabase, set_session, is_logged_in, AUTH_CSS
 
-st.set_page_config(page_title="Login — Clara", page_icon="💳", layout="centered")
+st.set_page_config(page_title="Login — Clara", page_icon="💳", layout="centered", initial_sidebar_state="collapsed")
 st.markdown(AUTH_CSS, unsafe_allow_html=True)
 st.markdown("""
 <style>
@@ -23,7 +23,7 @@ div[data-testid="stFormSubmitButton"] button:hover {
 
 # Already logged in → go straight to app
 if is_logged_in():
-    st.switch_page("frontend.py")
+    st.switch_page("pages/home.py")
 
 st.markdown("""
 <div style="text-align:center;padding:48px 0 24px">
@@ -35,7 +35,7 @@ st.markdown("""
     Welcome back
   </div>
   <div style="font-size:.85rem;color:#666">
-    Sign in to your account
+    Sign in to your Categoriz account
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -64,7 +64,7 @@ with col:
                     {"email": email.strip(), "password": password}
                 )
                 set_session({"user": res.user, "access_token": res.session.access_token})
-                st.switch_page("frontend.py")
+                st.switch_page("pages/home.py")
             except Exception as e:
                 err = str(e)
                 if "Invalid login" in err or "invalid" in err.lower():
@@ -87,7 +87,8 @@ with col:
     )
     st.markdown(
         '<div class="auth-link" style="margin-top:8px">No account? '
-        '<a href="/signup" target="_self">Sign up free</a></div>',
+        '<a href="/signup" target="_self" style="color:#F5B731;font-weight:500">'
+        'Sign up free →</a></div>',
         unsafe_allow_html=True,
     )
     st.markdown(
