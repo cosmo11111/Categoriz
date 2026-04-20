@@ -1265,26 +1265,40 @@ Top vendors: {_top_v}"""
                     if not uid:
                         st.markdown("<p style='color:#888;font-size:.85rem;margin:0'>Sign in to save reports.</p>", unsafe_allow_html=True)
                     else:
-                        sv1, sv2 = st.columns([1, 1])
-                        with sv1:
-                            report_label = st.text_input("Label", placeholder="e.g. March 2026",
-                                                         label_visibility="collapsed",
-                                                         key="report_label")
-                        with sv2:
-                            period_start = st.date_input("From", value=None,
-                                                         label_visibility="collapsed",
-                                                         key="period_start")
-                        period_end = st.date_input("To", value=None,
-                                                   label_visibility="collapsed",
-                                                   key="period_end")
-                        ps_str = str(period_start) if period_start else None
-                        pe_str = str(period_end)   if period_end   else None
-                        if ps_str and pe_str and check_duplicate_report(uid, ps_str, pe_str):
-                            st.warning("⚠️ Overlapping report already exists.")
+                        # Wrap in st.form so date pickers don't trigger reruns mid-interaction
+                        with st.form("save_report_form", border=False):
+                            # Row 1 — report name only
+                            report_label = st.text_input(
+                                "Label", placeholder="e.g. March 2026",
+                                label_visibility="collapsed",
+                                key="report_label"
+                            )
+                            # Row 2 — start and end date side by side
+                            sv1, sv2 = st.columns(2)
+                            with sv1:
+                                period_start = st.date_input(
+                                    "From", value=None,
+                                    format="DD/MM/YYYY",
+                                    key="period_start"
+                                )
+                            with sv2:
+                                period_end = st.date_input(
+                                    "To", value=None,
+                                    format="DD/MM/YYYY",
+                                    key="period_end"
+                                )
+                            submitted = st.form_submit_button(
+                                "Save report", use_container_width=True, type="primary"
+                            )
 
-                        if st.button("Save report", use_container_width=True, key="save_report_btn", type="primary"):
+                        # Handle submission outside the form
+                        if submitted:
+                            ps_str = str(period_start) if period_start else None
+                            pe_str = str(period_end)   if period_end   else None
                             if not report_label.strip():
                                 st.warning("Enter a label.")
+                            elif ps_str and pe_str and check_duplicate_report(uid, ps_str, pe_str):
+                                st.warning("⚠️ Overlapping report already exists.")
                             else:
                                 _rows = st.session_state.get("tx_rows", [])
                                 for _i in range(len(_rows)):
@@ -1319,7 +1333,7 @@ Top vendors: {_top_v}"""
                                     ai_insight=st.session_state.get("_insight_to_save"),
                                 )
                                 if ok:
-                                    st.success("✅ Saved!")
+                                    st.success("✅ Report saved!")
                                 else:
                                     st.error(f"Could not save: {err}")
 
