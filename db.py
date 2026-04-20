@@ -1,5 +1,5 @@
 """
-db.py — all Supabase read/write operations for Expense AI
+db.py — all Supabase read/write operations for Clara
 Import this wherever you need to talk to the database.
 """
 from __future__ import annotations
@@ -546,6 +546,9 @@ def can_analyse(uid: str) -> tuple[bool, str]:
     tier  = profile.get("subscription_tier", "starter")
     used  = profile.get("analyses_used", 0)
     limit = profile.get("analyses_limit", 10)
+
+    if tier not in ("free_trial", "starter", "unlimited"):
+        return False, "Unrecognised plan. Please contact support."
 
     if tier == "unlimited":
         return True, ""
