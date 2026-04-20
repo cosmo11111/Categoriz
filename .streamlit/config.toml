@@ -4,10 +4,13 @@ headless = true
 [browser]
 gatherUsageStats = false
 
+[client]
+showSidebarNavigation = false
+
 [theme]
 base = "dark"
-backgroundColor = "#0f0f13"
-secondaryBackgroundColor = "#17171d"
-textColor = "#e8e6e1"
-primaryColor = "#f0c040"
+backgroundColor = "#0b0b12"
+secondaryBackgroundColor = "#171720"
+textColor = "#F2EEE6"
+primaryColor = "#F5B731"
 font = "sans serif"
