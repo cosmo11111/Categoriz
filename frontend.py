@@ -19,17 +19,6 @@ from db import (
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Clara", page_icon="💳", layout="wide")
 
-# ── Instant CSS — hides sidebar and nav before Python auth check runs ──────────
-st.html("""
-<style>
-  [data-testid="stSidebar"] { display:none !important; }
-  [data-testid="stSidebarNav"] { display:none !important; }
-  [data-testid="collapsedControl"] { display:none !important; }
-  #MainMenu { visibility:hidden !important; }
-  header { visibility:hidden !important; }
-</style>
-""")
-
 # ── Auth check before anything renders ────────────────────────────────────────
 # Show a branded loading screen immediately, then redirect if not logged in.
 # This prevents the upload page flashing before the login redirect.
