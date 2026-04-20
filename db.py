@@ -56,25 +56,43 @@ def _decrypt(value: str | None, cipher) -> str | None:
 
 
 DEFAULT_CATEGORY_COLORS = {
-    # Primary categories — brand secondary palette
-    "Food & Dining":  "#D97A6A",  # Warm Coral
-    "Transport":      "#6F8FAF",  # Dusty Blue
-    "Shopping":       "#8D7AA8",  # Lavender
-    "Health":         "#7FA58A",  # Sage
-    "Utilities":      "#8C8F9A",  # Cool Grey
-    "Subscriptions":  "#9D8AB8",  # Lavender lighter
-    "Travel":         "#C4694A",  # Warm Coral deeper
-    "Entertainment":  "#B87898",  # Muted pink
-    "Housing":        "#4A6A8F",  # Dusty Blue deeper
-    "Groceries":      "#C49040",  # Warm amber
-    "Education":      "#5A8A9F",  # Dusty teal
-    "Personal Care":  "#A07898",  # Dusty mauve
-    "Insurance":      "#7A8A8A",  # Muted teal-grey
-    "Investments":    "#5A8A6A",  # Sage deeper
-    "Transfers":      "#6A6D78",  # Cool grey muted
-    "Income":         "#4ade80",  # Keep saturated green
-    "Other":          "#6A6D78",  # Cool Grey muted
+    # Deliberately varied hues — no yellow (reserved for Clara brand)
+    # No two adjacent categories share the same hue family
+    "Food & Dining":  "#C4604A",  # Terracotta red-orange
+    "Transport":      "#5B8DB8",  # Steel blue
+    "Shopping":       "#9B6EA8",  # Purple
+    "Health":         "#5E9E78",  # Forest green
+    "Utilities":      "#7A8FA8",  # Slate blue-grey
+    "Subscriptions":  "#A05878",  # Rose-mauve (distinct from purple)
+    "Travel":         "#C47A45",  # Burnt orange (distinct from terracotta)
+    "Entertainment":  "#5878A8",  # Indigo blue (distinct from steel blue)
+    "Housing":        "#7A6EA0",  # Blue-violet (distinct from purple)
+    "Groceries":      "#6A9E6A",  # Muted olive green (distinct from forest)
+    "Education":      "#5A9898",  # Teal
+    "Personal Care":  "#B87878",  # Dusty rose (distinct from rose-mauve)
+    "Insurance":      "#7A8A7A",  # Sage grey-green
+    "Investments":    "#4A8A6A",  # Deep sage
+    "Transfers":      "#6A7A8A",  # Cool blue-grey
+    "Income":         "#4ade80",  # Keep saturated green — semantic signal
+    "Other":          "#6A6D78",  # Neutral grey
 }
+
+# Auto-assign rotation for user-created categories
+# Chosen to be distinct from each other and from the defaults above
+CATEGORY_COLOR_ROTATION = [
+    "#C45A6A",  # Crimson rose
+    "#5A7AB8",  # Cornflower blue
+    "#7A9A5A",  # Olive
+    "#A06858",  # Clay brown
+    "#5A8A9A",  # Petrol teal
+    "#887AAA",  # Soft violet
+    "#8A6A4A",  # Warm brown
+    "#5A6A9A",  # Slate indigo
+    "#9A6A7A",  # Mauve
+    "#4A7A6A",  # Dark teal-green
+    "#7A5A8A",  # Deep purple
+    "#9A7A5A",  # Sand brown
+]
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -94,9 +112,30 @@ def load_categories(user_id: str) -> dict:
     return merged
 
 
-def save_category(user_id: str, name: str, color: str) -> tuple[bool, str]:
-    """Upsert a custom category. Returns (success, error_message)."""
+def auto_assign_color(user_id: str) -> str:
+    """
+    Pick the next colour from CATEGORY_COLOR_ROTATION not already used
+    by this user's custom categories. Cycles if all are used.
+    """
+    existing = load_categories(user_id)
+    used_colors = set(existing.values())
+    for color in CATEGORY_COLOR_ROTATION:
+        if color not in used_colors:
+            return color
+    # All rotation colours used — cycle back to first
+    custom_count = len({k: v for k, v in existing.items()
+                        if k not in DEFAULT_CATEGORY_COLORS})
+    return CATEGORY_COLOR_ROTATION[custom_count % len(CATEGORY_COLOR_ROTATION)]
+
+
+def save_category(user_id: str, name: str, color: str | None = None) -> tuple[bool, str]:
+    """
+    Upsert a custom category. If color is None, auto-assigns from rotation.
+    Returns (success, error_message).
+    """
     try:
+        if not color:
+            color = auto_assign_color(user_id)
         sb = get_supabase()
         sb.table("user_categories").upsert(
             {"user_id": user_id, "name": name, "color": color},
