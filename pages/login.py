@@ -80,17 +80,13 @@ with col:
 
     st.markdown('<hr class="auth-divider">', unsafe_allow_html=True)
 
-    st.markdown(
-        '<div class="auth-link">Forgot your password? '
-        '<a href="/reset_password" target="_self">Reset it</a></div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div class="auth-link" style="margin-top:8px">No account? '
-        '<a href="/signup" target="_self" style="color:#F5B731;font-weight:500">'
-        'Sign up free →</a></div>',
-        unsafe_allow_html=True,
-    )
+    col_r, col_s = st.columns(2)
+    with col_r:
+        if st.button("Forgot password?", use_container_width=True):
+            st.switch_page(st.session_state["_page_reset"])
+    with col_s:
+        if st.button("Sign up free →", use_container_width=True, type="primary"):
+            st.switch_page(st.session_state["_page_signup"])
     st.markdown(
         '<div class="auth-link" style="margin-top:16px;font-size:.75rem;color:#444">'
         '<a href="https://drive.google.com/file/d/1Yl0ed8IiMzYalV2rcXUsLtBymnvvjyZ5/view?usp=sharing" target="_blank" style="color:#555">📄 Privacy Policy</a>'
