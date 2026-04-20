@@ -145,24 +145,24 @@ with st.sidebar.container(key="sidebar_bottom"):
     """, unsafe_allow_html=True)
     if tier == "free_trial":
         if st.button("⚡ Upgrade plan", use_container_width=True, type="primary"):
-            st.switch_page("pages/pricing.py")
+            st.switch_page(st.session_state["_page_pricing"])
     elif tier == "starter":
         if st.button("⚡ Upgrade to Unlimited", use_container_width=True, type="primary"):
-            st.switch_page("pages/pricing.py")
+            st.switch_page(st.session_state["_page_pricing"])
     else:
         if st.button("⚡ Manage plan", use_container_width=True, type="primary"):
-            st.switch_page("pages/pricing.py")
+            st.switch_page(st.session_state["_page_pricing"])
     if st.button("📂 Saved Reports", use_container_width=True):
-        st.switch_page("pages/reports.py")
+        st.switch_page(st.session_state["_page_reports"])
     if st.button("⚙ Settings", use_container_width=True):
-        st.switch_page("pages/settings.py")
+        st.switch_page(st.session_state["_page_settings"])
     if st.button("Sign out", use_container_width=True):
         try:
             get_supabase().auth.sign_out()
         except Exception:
             pass
         clear_session()
-        st.switch_page("pages/login.py")
+        st.switch_page(st.session_state["_page_login"])
 
 st.html("""
 <style>
@@ -377,7 +377,7 @@ elif st.session_state.step == 3:
                   🔒 {reason_display}
                 </div>""", unsafe_allow_html=True)
                 if st.button("⚡ View upgrade options", type="primary"):
-                    st.switch_page("pages/pricing.py")
+                    st.switch_page(st.session_state["_page_pricing"])
                 st.stop()
 
         with st.spinner("Extracting text and sending to Gemini…"):
