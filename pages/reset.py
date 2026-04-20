@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 from auth import get_supabase, is_logged_in, AUTH_CSS
 
-st.set_page_config(page_title="Reset Password — Categoriz", page_icon="💳", layout="centered")
+st.set_page_config(page_title="Reset Password — Categoriz", page_icon="💳", layout="centered", initial_sidebar_state="collapsed")
 st.markdown(AUTH_CSS, unsafe_allow_html=True)
 st.markdown("""
 <style>
@@ -17,7 +17,7 @@ div[data-testid="stFormSubmitButton"] button {
 </style>""", unsafe_allow_html=True)
 
 if is_logged_in():
-    st.switch_page("frontend.py")
+    st.switch_page(st.session_state["_page_home"])
 
 SUPABASE_URL      = st.secrets["SUPABASE_URL"]
 SUPABASE_ANON_KEY = st.secrets["SUPABASE_ANON_KEY"]
@@ -124,7 +124,7 @@ if mode == "request":
 
         st.markdown('<hr class="auth-divider">', unsafe_allow_html=True)
         st.markdown('<div class="auth-link">Remembered it? '
-                    '<a href="/1_login" target="_self">Back to sign in</a></div>',
+                    '<a href="#" target="_self">Back to sign in</a></div>',
                     unsafe_allow_html=True)
 
 # ── Enter code mode ────────────────────────────────────────────────────────────
@@ -220,7 +220,7 @@ else:
                 if ok:
                     msg.markdown(
                         '<div class="auth-success">✅ Password updated! '
-                        '<a href="/1_login" target="_self" style="color:#34d399">'
+                        '<a href="#" target="_self" style="color:#34d399">'
                         'Sign in</a></div>',
                         unsafe_allow_html=True,
                     )
