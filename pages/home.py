@@ -76,12 +76,15 @@ div[data-testid="stSidebarUserContent"] { display:flex !important; flex-directio
 .tx-table .del-btn button:hover { color:#C4604A !important; background:#1a0f0f !important; }
 
 .stFileUploader { background:#171720 !important; border:0.5px dashed #252535 !important; border-radius:10px !important; }
+.stFileUploader label { padding-top:12px !important; padding-left:4px !important; display:block !important; }
 .stFileUploader:hover { border-color:#F5B731 !important; color:#F5B731 !important; background:#1c1c28 !important; }
 
 .stButton button[kind="primary"] { background:#F5B731 !important; color:#0b0b12 !important; border:none !important; }
 .stButton button[kind="primary"]:hover { opacity:0.88 !important; }
 
 [data-testid="InputInstructions"] { display:none !important; }
+[data-testid="stFileUploaderDropzoneInstructions"] { padding:8px 0 !important; }
+[data-testid="stFileUploader"] label { padding:8px 0 4px !important; display:block; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -317,7 +320,6 @@ if st.session_state.step in (1, 2):
             st.markdown('<div class="info-box">Upload a PDF bank statement. You can redact sensitive '
                         'information (account numbers, BSB, personal details) before the AI reads it.</div>',
                         unsafe_allow_html=True)
-            st.markdown("<div style='padding-top:8px'></div>", unsafe_allow_html=True)
             uploaded = st.file_uploader("Upload PDF", type=["pdf"], label_visibility="visible")
             if uploaded:
                 b = uploaded.read()
