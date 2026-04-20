@@ -543,9 +543,9 @@ def can_analyse(uid: str) -> tuple[bool, str]:
     if not profile:
         return False, "Profile not found. Please sign out and back in."
 
-    tier  = profile.get("subscription_tier", "free_trial")
+    tier  = profile.get("subscription_tier", "starter")
     used  = profile.get("analyses_used", 0)
-    limit = profile.get("analyses_limit", 3)
+    limit = profile.get("analyses_limit", 10)
 
     if tier == "unlimited":
         return True, ""
