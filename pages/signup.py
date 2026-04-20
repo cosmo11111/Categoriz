@@ -17,7 +17,7 @@ div[data-testid="stFormSubmitButton"] button {
 </style>""", unsafe_allow_html=True)
 
 if is_logged_in():
-    st.switch_page("frontend.py")
+    st.switch_page(st.session_state["_page_home"])
 
 st.markdown("""<div style="text-align:center;padding:48px 0 24px">
   <div style="font-family:'DM Serif Display',serif;font-style:italic;font-size:3rem;
@@ -72,7 +72,7 @@ with col:
                     msg_placeholder.markdown(
                         '<div class="auth-success">'
                         '✅ Account created! Check your email to confirm your address, '
-                        'then <a href="/login" target="_self" style="color:#34d399">sign in</a>.'
+                        'then sign in below.'
                         '</div>',
                         unsafe_allow_html=True,
                     )
@@ -82,23 +82,31 @@ with col:
                         unsafe_allow_html=True,
                     )
             except Exception as e:
-                err_str = str(e)
-                if "already registered" in err_str.lower() or "already exists" in err_str.lower():
-                    msg = ('An account with this email already exists. '
-                           '<a href="/login" target="_self" style="color:#f87171">Sign in instead?</a>')
+                err_str = str(e).lower()
+                # Timeout likely means signup succeeded but response was slow
+                if "timed out" in err_str or "timeout" in err_str or "read operation" in err_str:
+                    msg_placeholder.markdown(
+                        '<div class="auth-success">'
+                        '✅ Account created! Check your email to confirm your address, '
+                        'then sign in below.'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+                elif "already registered" in err_str or "already exists" in err_str:
+                    msg_placeholder.markdown(
+                        '<div class="auth-error">An account with this email already exists. '
+                        '<a href="/login" style="color:#c07070">Sign in instead?</a></div>',
+                        unsafe_allow_html=True,
+                    )
                 else:
-                    msg = f"Sign-up failed: {err_str}"
-                msg_placeholder.markdown(
-                    f'<div class="auth-error">{msg}</div>',
-                    unsafe_allow_html=True,
-                )
+                    msg_placeholder.markdown(
+                        f'<div class="auth-error">Sign-up failed: {str(e)}</div>',
+                        unsafe_allow_html=True,
+                    )
 
     st.markdown('<hr class="auth-divider">', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="auth-link">Already have an account? '
-        '<a href="/login" target="_self">Sign in</a></div>',
-        unsafe_allow_html=True,
-    )
+    if st.button("Already have an account? Sign in", use_container_width=True):
+        st.switch_page(st.session_state["_page_login"])
     st.markdown(
         '<div class="auth-link" style="margin-top:12px;font-size:.75rem;color:#444">'
         'By signing up you agree to our '
