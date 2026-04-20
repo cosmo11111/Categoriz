@@ -2,12 +2,12 @@ import streamlit as st
 from auth import require_auth, get_user, get_supabase, clear_session
 from db import get_profile, TIER_LABELS
 
-st.set_page_config(page_title="Pricing — Clara", page_icon="💳", layout="centered")
 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap');
 html, body, .stApp { font-family:'DM Sans',sans-serif; background:#0b0b12; color:#F2EEE6; }
+.block-container { max-width:860px !important; padding-left:2rem !important; padding-right:2rem !important; }
 section[data-testid="stSidebar"] { background:#0f0f18 !important; border-right:0.5px solid #1c1c28; }
 section[data-testid="stSidebar"] * { color:#c8c5bf !important; }
 section[data-testid="stSidebar"] button[kind="primary"] { color:#0b0b12 !important; }
@@ -54,7 +54,6 @@ section[data-testid="stSidebar"] button[kind="primary"] * { color:#0b0b12 !impor
 </style>
 """, unsafe_allow_html=True)
 
-require_auth()
 
 user    = get_user()
 uid     = user.id if hasattr(user,"id") else user.get("id") if user else None
@@ -67,7 +66,7 @@ limit   = profile.get("analyses_limit", 3)
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     if st.button("⌂ Home", use_container_width=True):
-        st.switch_page("frontend.py")
+        st.switch_page(st.session_state["_page_home"])
 
 with st.sidebar.container(key="sidebar_bottom"):
     st.markdown(f"<p style='color:#555;font-size:.8rem;margin-bottom:2px'>Signed in as</p>",
@@ -79,7 +78,7 @@ with st.sidebar.container(key="sidebar_bottom"):
         try: get_supabase().auth.sign_out()
         except: pass
         clear_session()
-        st.switch_page("pages/1_login.py")
+        st.switch_page(st.session_state["_page_login"])
 
 st.html("""
 <style>
