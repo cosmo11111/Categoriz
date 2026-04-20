@@ -19,13 +19,7 @@ section[data-testid="stSidebar"] button[kind="primary"] * { color:#0b0b12 !impor
 .stButton button[kind="primary"] { background:#F5B731 !important; color:#0b0b12 !important; border:none !important; }
 .stLinkButton a { border-radius:8px !important; font-weight:500 !important; }
 
-/* Pull buttons up tight against the card above */
-div[data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlockBorderWrapper"],
-div[data-testid="column"] > div > div > div[data-testid="stButton"],
-div[data-testid="column"] > div > div > div[data-testid="stLinkButton"] {
-    margin-top:-8px !important;
-}
-.pc { margin-bottom:0 !important; }
+
 
 .pc {
     background:#171720; border:0.5px solid #1c1c28; border-radius:14px;
@@ -215,6 +209,7 @@ unlimited_featured = tier == "starter"
 with col1:
     is_current = tier == "free_trial"
     badge = '<div class="pc-current-badge">Current plan</div>' if is_current else '<div style="height:26px"></div>'
+    free_btn_label = "Current plan" if is_current else "Downgrade"
     st.markdown(f"""
     <div class="pc {'current' if is_current else ''}">
       {badge}
@@ -230,13 +225,13 @@ with col1:
       <div class="pc-feat"><span class="pc-cross">✗</span>AI insights</div>
       <div class="pc-feat"><span class="pc-cross">✗</span>Full transaction history</div>
       <div style="height:28px"></div>
+      <div style="margin-top:2rem;padding:10px;border-radius:8px;text-align:center;
+                  background:#0f0f18;border:0.5px solid #252535;
+                  font-size:.85rem;font-weight:500;color:#444">
+        {free_btn_label}
+      </div>
     </div>
     """, unsafe_allow_html=True)
-    if is_current:
-        st.button("Current plan", key="free_btn", disabled=True, use_container_width=True)
-    elif tier in ("starter", "unlimited"):
-        st.button("Downgrade", key="free_btn", disabled=True,
-                  use_container_width=True, help="Contact cosmond00@gmail.com to downgrade")
 
 with col2:
     is_current = tier == "starter"
@@ -246,6 +241,25 @@ with col2:
         badge = '<div class="pc-current-badge">Current plan</div>'
     else:
         badge = '<div style="height:26px"></div>'
+
+    if is_current:
+        starter_btn_html = """<div style="margin-top:2rem;padding:10px;border-radius:8px;
+                  text-align:center;background:#0f0f18;border:0.5px solid #252535;
+                  font-size:.85rem;font-weight:500;color:#444">Current plan</div>"""
+    elif tier == "free_trial" and _starter_url:
+        starter_btn_html = f"""<a href="{_starter_url}" target="_blank"
+                  style="display:block;margin-top:2rem;padding:10px;border-radius:8px;
+                  text-align:center;background:#F5B731;
+                  font-size:.85rem;font-weight:500;color:#0b0b12;text-decoration:none">
+                  Get Starter →</a>"""
+    elif tier == "unlimited":
+        starter_btn_html = """<div style="margin-top:2rem;padding:10px;border-radius:8px;
+                  text-align:center;background:#0f0f18;border:0.5px solid #252535;
+                  font-size:.85rem;font-weight:500;color:#444">Downgrade to Starter</div>"""
+    else:
+        starter_btn_html = """<div style="margin-top:2rem;padding:10px;border-radius:8px;
+                  text-align:center;background:#0f0f18;border:0.5px solid #252535;
+                  font-size:.85rem;font-weight:500;color:#444">Get Starter</div>"""
 
     st.markdown(f"""
     <div class="pc {'featured' if starter_featured else 'current' if is_current else ''}">
@@ -262,22 +276,11 @@ with col2:
       <div class="pc-feat on"><span class="pc-tick">✓</span>Full transaction history</div>
       <div class="pc-feat on"><span class="pc-tick">✓</span>Historical reports</div>
       <div class="pc-feat"><span class="pc-cross">✗</span>Unlimited analyses</div>
-      <div style="margin-top:10px;font-size:.75rem;color:#3a3a50;font-style:italic">
-        More features to come
-      </div>
+      <div class="pc-feat on"><span class="pc-tick">✓</span>More features to come</div>
+      <div style="height:1.5rem"></div>
+      {starter_btn_html}
     </div>
     """, unsafe_allow_html=True)
-    if is_current:
-        st.button("Current plan", key="starter_btn", disabled=True, use_container_width=True)
-    elif tier == "free_trial":
-        if _starter_url:
-            st.link_button("Get Starter →", _starter_url,
-                           type="primary", use_container_width=True)
-        else:
-            st.button("Get Starter", key="starter_btn", disabled=True, use_container_width=True)
-    elif tier == "unlimited":
-        st.button("Downgrade to Starter", key="starter_btn", disabled=True,
-                  use_container_width=True, help="Contact cosmond00@gmail.com to downgrade")
 
 with col3:
     is_current = tier == "unlimited"
@@ -287,6 +290,21 @@ with col3:
         badge = '<div class="pc-current-badge">Current plan</div>'
     else:
         badge = '<div style="height:26px"></div>'
+
+    if is_current:
+        unlimited_btn_html = """<div style="margin-top:2rem;padding:10px;border-radius:8px;
+                  text-align:center;background:#0f0f18;border:0.5px solid #252535;
+                  font-size:.85rem;font-weight:500;color:#444">Current plan</div>"""
+    elif _unlimited_url:
+        unlimited_btn_html = f"""<a href="{_unlimited_url}" target="_blank"
+                  style="display:block;margin-top:2rem;padding:10px;border-radius:8px;
+                  text-align:center;background:#F5B731;
+                  font-size:.85rem;font-weight:500;color:#0b0b12;text-decoration:none">
+                  Get Unlimited →</a>"""
+    else:
+        unlimited_btn_html = """<div style="margin-top:2rem;padding:10px;border-radius:8px;
+                  text-align:center;background:#0f0f18;border:0.5px solid #252535;
+                  font-size:.85rem;font-weight:500;color:#444">Get Unlimited</div>"""
 
     st.markdown(f"""
     <div class="pc {'featured' if unlimited_featured else 'current' if is_current else ''}">
@@ -303,20 +321,11 @@ with col3:
       <div class="pc-feat on"><span class="pc-tick">✓</span>Saving ratio metric</div>
       <div class="pc-feat on"><span class="pc-tick">✓</span>Investment projection</div>
       <div class="pc-feat on"><span class="pc-tick">✓</span>Budget targets</div>
-      <div style="margin-top:10px;font-size:.75rem;color:#3a3a50;font-style:italic">
-        More features to come
-      </div>
+      <div class="pc-feat on"><span class="pc-tick">✓</span>More features to come</div>
+      <div style="height:1.5rem"></div>
+      {unlimited_btn_html}
     </div>
     """, unsafe_allow_html=True)
-    if is_current:
-        st.button("Current plan", key="unlimited_btn", disabled=True, use_container_width=True)
-    else:
-        if _unlimited_url:
-            st.link_button("Get Unlimited →", _unlimited_url,
-                           type="primary", use_container_width=True)
-        else:
-            st.button("Get Unlimited", key="unlimited_btn", disabled=True,
-                      use_container_width=True)
 
 # ── Subscription management ────────────────────────────────────────────────────
 if tier in ("starter", "unlimited"):
