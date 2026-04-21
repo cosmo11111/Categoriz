@@ -509,6 +509,32 @@ elif st.session_state.step == 3:
         _charts_placeholder  = st.empty()
         cat_totals = pd.Series(dtype=float)
 
+        # ── Loading states — filled immediately, replaced once data is ready ──
+        _metrics_placeholder.markdown("""
+        <div class="metric-strip">
+          <div class="metric"><div class="val" style="color:#555">—</div><div class="lbl">Transactions</div></div>
+          <div class="metric"><div class="val" style="color:#555">—</div><div class="lbl">Total Spent</div></div>
+          <div class="metric"><div class="val" style="color:#555">—</div><div class="lbl">Total Income</div></div>
+          <div class="metric"><div class="val" style="color:#555">—</div><div class="lbl">Biggest Category</div></div>
+        </div>""", unsafe_allow_html=True)
+
+        _insight_placeholder.markdown("""
+        <div style="background:#171720;border:0.5px solid #1c1c28;border-radius:10px;
+                    padding:14px 18px;margin:0 0 16px">
+          <p style="font-size:.7rem;font-weight:600;color:#444;text-transform:uppercase;
+                    letter-spacing:.08em;margin:0 0 10px">✦ AI Insight</p>
+          <div style="background:#1c1c28;border-radius:4px;height:6px;margin-bottom:8px;overflow:hidden">
+            <div style="height:6px;border-radius:4px;background:linear-gradient(90deg,#252535 0%,#F5B731 50%,#252535 100%);
+                        background-size:200% 100%;animation:shimmer 1.5s infinite"
+                 class="loading-bar"></div>
+          </div>
+          <p style="font-size:.85rem;color:#444;margin:0">Generating insight…</p>
+        </div>
+        <style>
+          @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        </style>
+        """, unsafe_allow_html=True)
+
         # ── Transaction table ─────────────────────────────────────────────────
         st.markdown("#### All Transactions")
         st.markdown(
