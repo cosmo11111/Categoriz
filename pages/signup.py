@@ -1,8 +1,7 @@
 import streamlit as st
-from auth import get_supabase, is_logged_in, AUTH_CSS
+from auth import get_supabase, is_logged_in, set_session, AUTH_CSS
 import re
 
-st.set_page_config(page_title="Sign Up — Clara", page_icon="💳", layout="centered", initial_sidebar_state="collapsed")
 st.markdown(AUTH_CSS, unsafe_allow_html=True)
 st.markdown("""
 <style>
@@ -68,11 +67,15 @@ with col:
                     {"email": email.strip(), "password": password}
                 )
                 # Supabase returns a user even if email confirmation is pending
-                if res.user:
+                if res.user and res.session:
+                    # Email confirmation is off — session is returned immediately
+                    set_session({"user": res.user, "access_token": res.session.access_token})
+                    st.switch_page(st.session_state["_page_home"])
+                elif res.user:
+                    # User created but no session yet — ask them to sign in
                     msg_placeholder.markdown(
                         '<div class="auth-success">'
-                        '✅ Account created! Check your email to confirm your address, '
-                        'then sign in below.'
+                        '✅ Account created! Please sign in below.'
                         '</div>',
                         unsafe_allow_html=True,
                     )
@@ -83,12 +86,11 @@ with col:
                     )
             except Exception as e:
                 err_str = str(e).lower()
-                # Timeout likely means signup succeeded but response was slow
                 if "timed out" in err_str or "timeout" in err_str or "read operation" in err_str:
+                    # Timeout — account likely created, ask them to sign in
                     msg_placeholder.markdown(
                         '<div class="auth-success">'
-                        '✅ Account created! Check your email to confirm your address, '
-                        'then sign in below.'
+                        '✅ Account created! Please sign in below.'
                         '</div>',
                         unsafe_allow_html=True,
                     )
