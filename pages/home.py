@@ -133,80 +133,70 @@ zoom = st.session_state.zoom
 if "beta_popup_seen" not in st.session_state:
     st.session_state.beta_popup_seen = False
 
-if not st.session_state.beta_popup_seen:
+@st.dialog("Welcome to Clara Beta", width="large")
+def show_beta_popup():
     st.markdown("""
-    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.80);
-                display:flex;align-items:center;justify-content:center;z-index:9999">
-      <div style="background:#171720;border:0.5px solid #252535;border-radius:16px;
-                  padding:36px 40px;max-width:540px;width:90%">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
-          <span style="font-family:'DM Serif Display',serif;font-style:italic;
-                       font-size:2rem;color:#F5B731;line-height:1">Clara</span>
-          <span style="background:#F5B731;color:#0b0b12;font-size:10px;font-weight:500;
-                       padding:3px 10px;border-radius:20px;letter-spacing:.06em;
-                       text-transform:uppercase">Beta</span>
-        </div>
-        <p style="font-size:1rem;font-weight:500;color:#F2EEE6;margin:0 0 6px">
-          Welcome — and thanks for being here early.
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <span style="font-family:'DM Serif Display',serif;font-style:italic;
+                   font-size:1.8rem;color:#F5B731;line-height:1">Clara</span>
+      <span style="background:#F5B731;color:#0b0b12;font-size:10px;font-weight:500;
+                   padding:3px 10px;border-radius:20px;letter-spacing:.06em;
+                   text-transform:uppercase">Beta</span>
+    </div>
+    <p style="font-size:.95rem;font-weight:500;color:#F2EEE6;margin:0 0 6px">
+      Welcome — and thanks for being here early.
+    </p>
+    <p style="font-size:.85rem;color:#888;line-height:1.7;margin:0 0 16px">
+      Clara is in active development. Things may be a little rough around the edges
+      and we're hosted on third-party infrastructure — but here's what we can promise:
+    </p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="color:#F5B731;flex-shrink:0">✦</span>
+        <p style="font-size:.85rem;color:#c8c5bf;line-height:1.6;margin:0">
+          <strong style="color:#F2EEE6">Your PDF is never saved.</strong>
+          Processed in memory and permanently discarded the moment analysis is complete.
         </p>
-        <p style="font-size:.85rem;color:#888;line-height:1.7;margin:0 0 20px">
-          Clara is in active development. Things may be a little rough around the edges
-          and we're hosted on third-party infrastructure — but here's what we can promise:
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="color:#F5B731;flex-shrink:0">✦</span>
+        <p style="font-size:.85rem;color:#c8c5bf;line-height:1.6;margin:0">
+          <strong style="color:#F2EEE6">Redactions are permanent.</strong>
+          Whatever you black out is burned into the document before the AI ever sees it.
         </p>
-        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
-          <div style="display:flex;gap:12px;align-items:flex-start">
-            <span style="color:#F5B731;font-size:1rem;flex-shrink:0;margin-top:1px">✦</span>
-            <p style="font-size:.85rem;color:#c8c5bf;line-height:1.6;margin:0">
-              <strong style="color:#F2EEE6">Your PDF is never saved.</strong>
-              It's processed in memory and permanently discarded the moment analysis is complete.
-            </p>
-          </div>
-          <div style="display:flex;gap:12px;align-items:flex-start">
-            <span style="color:#F5B731;font-size:1rem;flex-shrink:0;margin-top:1px">✦</span>
-            <p style="font-size:.85rem;color:#c8c5bf;line-height:1.6;margin:0">
-              <strong style="color:#F2EEE6">Redactions are permanent.</strong>
-              Anything you black out is burned into the document before the AI ever sees it.
-              It cannot be recovered.
-            </p>
-          </div>
-          <div style="display:flex;gap:12px;align-items:flex-start">
-            <span style="color:#F5B731;font-size:1rem;flex-shrink:0;margin-top:1px">✦</span>
-            <p style="font-size:.85rem;color:#c8c5bf;line-height:1.6;margin:0">
-              <strong style="color:#F2EEE6">The AI doesn't store or learn from your data.</strong>
-              We use a private model — your transactions are not used for training.
-            </p>
-          </div>
-          <div style="display:flex;gap:12px;align-items:flex-start">
-            <span style="color:#F5B731;font-size:1rem;flex-shrink:0;margin-top:1px">✦</span>
-            <p style="font-size:.85rem;color:#c8c5bf;line-height:1.6;margin:0">
-              <strong style="color:#F2EEE6">Saved data is encrypted.</strong>
-              Vendor names and amounts saved to the app are encrypted in the database.
-              Only you can see them.
-            </p>
-          </div>
-        </div>
-        <div style="background:#0f0f18;border-radius:10px;padding:14px 16px;margin-bottom:24px;
-                    border:0.5px solid #F5B731">
-          <p style="font-size:.85rem;color:#F5B731;font-weight:500;margin:0 0 4px">
-            Your feedback is everything right now.
-          </p>
-          <p style="font-size:.8rem;color:#666;margin:0;line-height:1.6">
-            Tell us what's broken, what's missing, and what would make Clara genuinely
-            useful to you. Just reply to the email you received.
-          </p>
-        </div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="color:#F5B731;flex-shrink:0">✦</span>
+        <p style="font-size:.85rem;color:#c8c5bf;line-height:1.6;margin:0">
+          <strong style="color:#F2EEE6">The AI doesn't store or learn from your data.</strong>
+          We use a private model — your transactions are never used for training.
+        </p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <span style="color:#F5B731;flex-shrink:0">✦</span>
+        <p style="font-size:.85rem;color:#c8c5bf;line-height:1.6;margin:0">
+          <strong style="color:#F2EEE6">Saved data is encrypted.</strong>
+          Vendor names and amounts are encrypted in the database — only you can see them.
+        </p>
       </div>
     </div>
+    <div style="background:#0f0f18;border-radius:8px;padding:12px 16px;margin-bottom:20px;
+                border-left:3px solid #F5B731">
+      <p style="font-size:.85rem;color:#F5B731;font-weight:500;margin:0 0 4px">
+        Your feedback is everything right now.
+      </p>
+      <p style="font-size:.8rem;color:#666;margin:0;line-height:1.6">
+        Tell us what's broken, what's missing, and what would make Clara genuinely
+        useful to you. Just reply to the email you received.
+      </p>
+    </div>
     """, unsafe_allow_html=True)
+    if st.button("Got it, let's go →", type="primary", use_container_width=True):
+        st.session_state.beta_popup_seen = True
+        st.rerun()
 
-    # Button renders below the overlay — clicks through to dismiss
-    _, btn_col, _ = st.columns([1, 2, 1])
-    with btn_col:
-        if st.button("Got it, let's go →", type="primary",
-                     use_container_width=True, key="beta_popup_dismiss"):
-            st.session_state.beta_popup_seen = True
-            st.rerun()
-    st.stop()
+if not st.session_state.beta_popup_seen:
+    show_beta_popup()
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -238,24 +228,24 @@ with st.sidebar.container(key="sidebar_bottom"):
     """, unsafe_allow_html=True)
     if tier == "free_trial":
         if st.button("⚡ Upgrade plan", use_container_width=True, type="primary"):
-            st.switch_page(st.session_state["_page_pricing"])
+            st.switch_page(st.session_state.get("_page_pricing", "pages/pricing.py"))
     elif tier == "starter":
         if st.button("⚡ Upgrade to Unlimited", use_container_width=True, type="primary"):
-            st.switch_page(st.session_state["_page_pricing"])
+            st.switch_page(st.session_state.get("_page_pricing", "pages/pricing.py"))
     else:
         if st.button("⚡ Manage plan", use_container_width=True, type="primary"):
-            st.switch_page(st.session_state["_page_pricing"])
+            st.switch_page(st.session_state.get("_page_pricing", "pages/pricing.py"))
     if st.button("📂 Saved Reports", use_container_width=True):
-        st.switch_page(st.session_state["_page_reports"])
+        st.switch_page(st.session_state.get("_page_reports", "pages/reports.py"))
     if st.button("⚙ Settings", use_container_width=True):
-        st.switch_page(st.session_state["_page_settings"])
+        st.switch_page(st.session_state.get("_page_settings", "pages/settings.py"))
     if st.button("Sign out", use_container_width=True):
         try:
             get_supabase().auth.sign_out()
         except Exception:
             pass
         clear_session()
-        st.switch_page(st.session_state["_page_login"])
+        st.switch_page(st.session_state.get("_page_login", "pages/login.py"))
 
 st.html("""
 <style>
@@ -487,7 +477,7 @@ elif st.session_state.step == 3:
                   🔒 {reason_display}
                 </div>""", unsafe_allow_html=True)
                 if st.button("⚡ View upgrade options", type="primary"):
-                    st.switch_page(st.session_state["_page_pricing"])
+                    st.switch_page(st.session_state.get("_page_pricing", "pages/pricing.py"))
                 st.stop()
 
         with st.spinner("Extracting text and sending to Gemini…"):
